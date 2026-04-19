@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://img.icons8.com/color/160/portal.png" width="120" height="120" alt="qtRunner Logo"/>
+    <img src="https://i.imgur.com/0cOfkms.jpeg" width="1280" alt="qtRunner Banner"/>
 </div>
 
 <h1 align="center">qtRunner</h1>
@@ -9,12 +9,27 @@
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-usage">Usage</a> •
-  <a href="#-settings">Settings</a> •
-  <a href="#-project-structure">Structure</a>
+    <a href="https://www.lua.org/">
+        <img src="https://img.shields.io/badge/Lua-5.1-2C2D72?style=for-the-badge&logo=lua" alt="Lua 5.1"/>
+    </a>
+    <a href="#">
+        <img src="https://img.shields.io/badge/WoW-3.3.5a-C79C6E?style=for-the-badge" alt="WoW 3.3.5a"/>
+    </a>
+    <a href="LICENSE">
+        <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
+    </a>
 </p>
+
+---
+
+## 📋 Table of Contents
+- [✨ Features](#-features)
+- [📸 Preview](#-preview)
+- [📦 Installation](#-installation)
+- [💬 Slash Commands](#-slash-commands)
+- [⚙️ Settings](#️-settings)
+- [🧭 Default Aliases](#-default-aliases)
+- [📁 Project Structure](#-project-structure)
 
 ---
 
@@ -31,6 +46,29 @@
 
 ---
 
+## 📸 Preview
+
+<div align="center">
+    <table>
+        <tr>
+            <td rowspan="2" valign="center">
+                <img src="https://github.com/user-attachments/assets/00737a0b-9ee9-4190-8076-c7bdae90b465" width="300" alt="Main UI"/>
+            </td>
+            <td>
+                <img src="https://github.com/user-attachments/assets/09784564-1e9a-461c-91c7-2a819d236c9e" width="500" alt="Config UI 1"/>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="https://github.com/user-attachments/assets/d975cfc6-3f92-4af7-bf23-34363e49aa41" width="500" alt="Config UI 2"/>
+            </td>
+        </tr>
+    </table>
+    <p><em>Modern search interface and deep customization panels.</em></p>
+</div>
+
+---
+
 ## 📦 Installation
 
 1. Download or clone this repository.
@@ -39,12 +77,7 @@
    Synastria/Interface/AddOns/qtRunner/
    ```
 3. Ensure the following files are present inside the folder:
-   - `qtRunner.toc`
-   - `qtRunner.lua`
-   - `qtRunnerData.lua`
-   - `qtRunnerConfig.lua`
-   - `qtRunnerOptions.lua`
-   - `Bindings.xml`
+   - `qtRunner.toc`, `qtRunner.lua`, `qtRunnerData.lua`, `qtRunnerConfig.lua`, `qtRunnerOptions.lua`, `Bindings.xml`
 4. Enable **qtRunner** on the character selection screen.
 
 ---
@@ -52,8 +85,7 @@
 ## 🕹️ Usage
 
 ### Open the runner
-- Press `` ` `` (default keybind)
-- Or type `/qtr`
+- Press `` ` `` (default keybind) or type `/qtr`
 
 ### Basic flow
 1. **Search**: Start typing a zone name or alias.
@@ -84,13 +116,11 @@ Use `/qtr config` to customize your experience:
 - **Key Behavior**: Toggle submit on `Enter` or the hotkey.
 - **Visuals**: Toggle between Light and Dark themes.
 - **Alias Management**: Add, edit, or delete your custom shorthand.
-- **Factory Reset**: Wipe settings back to default.
 
 ---
 
 ## 🧭 Default Aliases
 
-Shorthand names included out of the box:
 - `dal` → **Dalaran**
 - `shat` → **Shattrath City**
 - `org` → **Orgrimmar**
@@ -117,4 +147,3 @@ qtRunner/
     <sub>Built for efficiency. Part of the <b>Synastria</b> addon suite.</sub><br>
     <a href="LICENSE">MIT License</a>
 </div>
-```
