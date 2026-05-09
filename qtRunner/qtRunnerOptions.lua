@@ -348,9 +348,15 @@ local function SelectTab(name)
     if name == "general" then
         settingsUI.general.section:Show()
         settingsUI.aliases.section:Hide()
-    else
+        settingsUI.tutorial.section:Hide()
+    elseif name == "aliases" then
         settingsUI.general.section:Hide()
         settingsUI.aliases.section:Show()
+        settingsUI.tutorial.section:Hide()
+    else
+        settingsUI.general.section:Hide()
+        settingsUI.aliases.section:Hide()
+        settingsUI.tutorial.section:Show()
     end
     qtRunner:RefreshSettingsTheme()
 end
@@ -526,6 +532,9 @@ local function BuildSettingsFrame()
     settingsUI.tabs.aliases = CreateButton(frame, 150, 28, "Aliases", "LEFT", settingsUI.tabs.general, "RIGHT", 12, 0, function()
         SelectTab("aliases")
     end)
+    settingsUI.tabs.tutorial = CreateButton(frame, 150, 28, "Tutorial", "LEFT", settingsUI.tabs.aliases, "RIGHT", 12, 0, function()
+        SelectTab("tutorial")
+    end)
 
     settingsUI.general = {}
     settingsUI.general.section = CreateFrame("Frame", nil, frame)
@@ -699,6 +708,38 @@ local function BuildSettingsFrame()
     settingsUI.aliases.footerCopy.mode = "muted"
     settingsUI.aliases.footerCopy:SetText("Examples: dal -> Dalaran, shat -> Shattrath City, org -> Orgrimmar. Destination fields autocomplete all warp zones; press Enter or Save.")
 
+    settingsUI.tutorial = {}
+    settingsUI.tutorial.section = CreateFrame("Frame", nil, frame)
+    settingsUI.tutorial.section:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -116)
+    settingsUI.tutorial.section:SetSize(720, 484)
+    settingsUI.tutorial.section:Hide()
+
+    local tutorialHero = CreatePanel(settingsUI.tutorial.section, 720, 84, "TOPLEFT", settingsUI.tutorial.section, "TOPLEFT", 0, 0)
+    settingsUI.tutorial.title = CreateText(tutorialHero, "GameFontNormalLarge", "TOPLEFT", tutorialHero, "TOPLEFT", 16, -14)
+    settingsUI.tutorial.title:SetText("Tutorial")
+    settingsUI.tutorial.copy = CreateText(tutorialHero, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.title, "BOTTOMLEFT", 0, -10, 660, "LEFT")
+    settingsUI.tutorial.copy.mode = "muted"
+    settingsUI.tutorial.copy:SetText("Quick in-game reference for modes and advanced filters.")
+
+    local tutorialBody = CreatePanel(settingsUI.tutorial.section, 720, 384, "TOPLEFT", tutorialHero, "BOTTOMLEFT", 0, -16)
+    settingsUI.tutorial.basicsTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", tutorialBody, "TOPLEFT", 16, -16)
+    settingsUI.tutorial.basicsTitle:SetText("Modes")
+    settingsUI.tutorial.basics = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.basicsTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
+    settingsUI.tutorial.basics.mode = "muted"
+    settingsUI.tutorial.basics:SetText("!q Warp · !z / !s Zone items · !x Zone quests (/a · /acc · /al · /at).  Hover ? beside the panel for full shortcuts.")
+
+    settingsUI.tutorial.filtersTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.basics, "BOTTOMLEFT", 0, -16)
+    settingsUI.tutorial.filtersTitle:SetText("Item Filters")
+    settingsUI.tutorial.filters = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.filtersTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
+    settingsUI.tutorial.filters.mode = "muted"
+    settingsUI.tutorial.filters:SetText("/tf /wf /lf forged tiers.  /ua unattuned char-ready.  /a or /acc account-attunable.  /ab account-attunable BOE.  /u unique-source drops.  /ub unique + char/account attunable + BOE.  /b boss drops (char-attunable).  /ba boss drops (account-side).  /t trash (non-craft).  /c crafting + char attunable.  /ca crafting + account-side.  /v vendor + char attunable.  /q quest.")
+
+    settingsUI.tutorial.notesTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.filters, "BOTTOMLEFT", 0, -16)
+    settingsUI.tutorial.notesTitle:SetText("Examples")
+    settingsUI.tutorial.notes = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.notesTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
+    settingsUI.tutorial.notes.mode = "muted"
+    settingsUI.tutorial.notes:SetText("!z /u finds unique-source drops in current zone.  !z /ub finds unique char/account-attunable BOEs in current zone.  !z /ab finds account-attunable BOEs in current zone.  Combine text + token: \"mourne /b\" or \"ring /ab\".")
+
     SelectTab("general")
 end
 
@@ -728,6 +769,7 @@ function qtRunner:RefreshSettingsTheme()
 
     settingsUI.tabs.general.text:SetTextColor(settingsUI.activeTab == "general" and colors.accent.r or colors.text.r, settingsUI.activeTab == "general" and colors.accent.g or colors.text.g, settingsUI.activeTab == "general" and colors.accent.b or colors.text.b)
     settingsUI.tabs.aliases.text:SetTextColor(settingsUI.activeTab == "aliases" and colors.accent.r or colors.text.r, settingsUI.activeTab == "aliases" and colors.accent.g or colors.text.g, settingsUI.activeTab == "aliases" and colors.accent.b or colors.text.b)
+    settingsUI.tabs.tutorial.text:SetTextColor(settingsUI.activeTab == "tutorial" and colors.accent.r or colors.text.r, settingsUI.activeTab == "tutorial" and colors.accent.g or colors.text.g, settingsUI.activeTab == "tutorial" and colors.accent.b or colors.text.b)
     settingsUI.general.defaultZoneButton.text:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
     settingsUI.general.defaultZoneButton.arrow:SetTextColor(colors.textMuted.r, colors.textMuted.g, colors.textMuted.b)
 
