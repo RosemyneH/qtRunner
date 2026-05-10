@@ -538,6 +538,9 @@ local function UpdateScrollList()
 end
 
 function qtRunner:RefreshRunnerList()
+    if not runnerFrame then
+        return
+    end
     local prevSel = GetSelectedEntry()
     local stickZone = prevSel and prevSel.zoneName
     local stickMode = prevSel and prevSel.mode
@@ -1294,6 +1297,13 @@ function qtRunner:HideRunner()
         runnerFrame:SetScript("OnUpdate", nil)
         runnerFrame:Hide()
     end
+    currentEntries = {}
+    filteredZones = {}
+    selectedIndex = 1
+    listScrollOffset = 0
+    lastListScrollKey = nil
+    lastWarpSearchCompact = ""
+    runnerPrevEntryCount = 0
     isRunnerVisible = false
 end
 
@@ -1318,7 +1328,6 @@ function qtRunner:Initialize()
         qtRunnerDB.aliases = qtRunnerData:GetDefaultAliases()
     end
     qtRunnerData:SetAliases(qtRunnerDB.aliases)
-    CreateRunnerFrame()
     if qtRunnerSearchMode then
         qtRunnerSearchMode:InstallTrackerHook(function()
             if runnerFrame and runnerFrame:IsShown() then
