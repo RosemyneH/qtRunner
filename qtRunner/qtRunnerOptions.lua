@@ -806,7 +806,6 @@ function qtRunner:RefreshSettingsTheme()
     settingsUI.general.defaultZoneButton.arrow:SetTextColor(colors.textMuted.r, colors.textMuted.g, colors.textMuted.b)
 
     for _, button in ipairs(settingsUI.themeButtons) do
-        local themeColors = qtRunner.Themes[button.themeName]
         local isSelected = qtRunnerDB.theme == button.themeName
         local border = isSelected and colors.accent or colors.borderSoft
         local borderAlpha = isSelected and 0.95 or border.a
@@ -817,12 +816,11 @@ function qtRunner:RefreshSettingsTheme()
         button:SetBackdropBorderColor(border.r, border.g, border.b, borderAlpha)
         button.text:SetTextColor(isSelected and colors.accent.r or colors.text.r, isSelected and colors.accent.g or colors.text.g, isSelected and colors.accent.b or colors.text.b)
 
-        if themeColors then
-            button.swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
-            button.swatch:SetVertexColor(themeColors.accent.r, themeColors.accent.g, themeColors.accent.b, 1)
-            button.swatchGlow:SetTexture("Interface\\Buttons\\WHITE8x8")
-            button.swatchGlow:SetVertexColor(themeColors.panel.r, themeColors.panel.g, themeColors.panel.b, 1)
-        end
+        local ar, ag, ab, pr, pg, pb = qtRunner:ThemePreviewColors(button.themeName)
+        button.swatch:SetTexture("Interface\\Buttons\\WHITE8x8")
+        button.swatch:SetVertexColor(ar, ag, ab, 1)
+        button.swatchGlow:SetTexture("Interface\\Buttons\\WHITE8x8")
+        button.swatchGlow:SetVertexColor(pr, pg, pb, 1)
     end
 
     for _, row in ipairs(settingsUI.rows) do
