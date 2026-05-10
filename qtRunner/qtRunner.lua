@@ -1237,7 +1237,52 @@ local function CreateRunnerFrame()
     end)
 end
 
+function qtRunner:_ApplyRunnerPanelColors(colors)
+    if not colors or not runnerFrame then
+        return
+    end
+    runnerFrame:SetBackdropColor(colors.panel.r, colors.panel.g, colors.panel.b, colors.panel.a)
+    runnerFrame:SetBackdropBorderColor(colors.border.r, colors.border.g, colors.border.b, colors.border.a)
+    if runnerFrame.searchBg then
+        runnerFrame.searchBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, colors.panelInset.a)
+        runnerFrame.searchBg:SetBackdropBorderColor(colors.borderSoft.r, colors.borderSoft.g, colors.borderSoft.b, colors.borderSoft.a)
+    end
+    if runnerFrame.dropBg then
+        runnerFrame.dropBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, 0.5 + (colors.panelInset.a * 0.15))
+        runnerFrame.dropBg:SetBackdropBorderColor(colors.listBorder.r, colors.listBorder.g, colors.listBorder.b, colors.listBorder.a)
+    end
+    if searchBox then
+        searchBox:SetTextColor(colors.accent.r, colors.accent.g, colors.accent.b)
+    end
+    if selectedNameText then
+        selectedNameText:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
+    end
+    for _, btn in ipairs(lineButtons) do
+        if btn and btn.hi then
+            btn.hi:SetVertexColor(colors.hi.r, colors.hi.g, colors.hi.b, colors.hi.a)
+        end
+        if btn and btn.label then
+            btn.label:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
+        end
+    end
+end
+
+function qtRunner:_RunnerFrameIsVisible()
+    return runnerFrame and runnerFrame:IsShown()
+end
+
+local function EnsureRunnerFrame()
+    if runnerFrame then
+        return
+    end
+    CreateRunnerFrame()
+    if qtRunner.ApplyTheme then
+        qtRunner:ApplyTheme()
+    end
+end
+
 function qtRunner:ShowRunner()
+    EnsureRunnerFrame()
     runnerFrame:Show()
     isRunnerVisible = true
 end
