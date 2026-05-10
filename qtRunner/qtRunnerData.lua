@@ -197,14 +197,13 @@ local function BuildCaches()
                 row = {}
                 aliasesByCanon[canon] = row
             end
-            local alow = strlower(alias)
-            tinsert(row, { alias = alias, alow = alow, acomp = strgsub(alow, "%s+", "") })
+            tinsert(row, alias)
         end
     end
 
     for _, row in pairs(aliasesByCanon) do
         tsort(row, function(a, b)
-            return a.alow < b.alow
+            return strlower(a) < strlower(b)
         end)
     end
 
@@ -261,8 +260,6 @@ function qtRunnerData:GetAliasPairs()
     end)
     return rows
 end
-
-BuildCaches()
 
 function qtRunnerData:ResolveSpellCanonical(input)
     if not input or input == "" then return nil end
@@ -341,8 +338,9 @@ function qtRunnerData:ZoneMatchesQuery(zoneName, query)
     local rows = self._aliasesByCanon[zoneName]
     if rows then
         for i = 1, #rows do
-            local r = rows[i]
-            local alow, acomp = r.alow, r.acomp
+            local alias = rows[i]
+            local alow = strlower(alias)
+            local acomp = strgsub(alow, "%s+", "")
             if strfind(acomp, compact, 1, true) or strfind(alow, lt, 1, true) then return true end
             if n >= 2 and n <= 12 and #acomp >= n and strsub(acomp, 1, n) == compact then return true end
         end
