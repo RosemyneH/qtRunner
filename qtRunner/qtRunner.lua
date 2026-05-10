@@ -965,7 +965,6 @@ end
 
 local function CreateRunnerFrame()
     runnerFrame = CreateFrame("Frame", "qtRunnerPanel", UIParent)
-    qtRunner.runnerFrame = runnerFrame
     runnerFrame:SetFrameStrata("DIALOG")
     runnerFrame:SetFrameLevel(100)
     runnerFrame:SetSize(FRAME_W, ICON_SIZE + 112 + LIST_HEIGHT + 8)
@@ -1001,7 +1000,6 @@ local function CreateRunnerFrame()
     end)
 
     previewIcon = runnerFrame:CreateTexture(nil, "ARTWORK")
-    qtRunner.previewIcon = previewIcon
     previewIcon:SetSize(ICON_SIZE, ICON_SIZE)
     previewIcon:SetPoint("TOP", 0, -8)
     previewIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -1031,14 +1029,12 @@ local function CreateRunnerFrame()
     end)
 
     selectedNameText = runnerFrame:CreateFontString(nil, "OVERLAY", "QuestFont_Large")
-    qtRunner.selectedNameText = selectedNameText
     selectedNameText:SetPoint("TOP", previewIcon, "BOTTOM", 0, -4)
     selectedNameText:SetWidth(FRAME_W - 16)
     selectedNameText:SetJustifyH("CENTER")
     selectedNameText:SetText("")
 
     modeNameText = runnerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    qtRunner.modeNameText = modeNameText
     modeNameText:SetPoint("TOP", selectedNameText, "BOTTOM", 0, -2)
     modeNameText:SetWidth(FRAME_W - 16)
     modeNameText:SetJustifyH("CENTER")
@@ -1058,7 +1054,6 @@ local function CreateRunnerFrame()
     runnerFrame.searchBg = searchBg
 
     searchBox = CreateFrame("EditBox", "qtRunnerPanelSearch", runnerFrame)
-    qtRunner.searchBox = searchBox
     searchBox:SetFontObject("GameFontHighlightLarge")
     searchBox:SetSize(FRAME_W - 36, 24)
     searchBox:SetPoint("CENTER", searchBg, "CENTER", 0, 0)
@@ -1115,7 +1110,6 @@ local function CreateRunnerFrame()
     runnerFrame.dropBg = dropBg
 
     listHost = CreateFrame("Frame", nil, dropBg)
-    qtRunner.listHost = listHost
     listHost:SetPoint("TOPLEFT", dropBg, "TOPLEFT", 4, -3)
     listHost:SetSize(FRAME_W - 22, LIST_HEIGHT)
     listHost:SetFrameLevel(dropBg:GetFrameLevel() + 2)
@@ -1185,7 +1179,6 @@ local function CreateRunnerFrame()
         end)
         lineButtons[i] = btn
     end
-    qtRunner.lineButtons = lineButtons
 
     runnerFrame:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
