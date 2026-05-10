@@ -2,7 +2,7 @@
 ## Title: |cff00bfffqt|r|cffff7d0aRunner|r
 ## Notes: Minimal zone warp runner (search, preview, teleport)
 ## Author: Qt
-## Version: bangarang
+## Version: bangarang PR2
 ## OptionalDeps: Questie-335, TomTom
 ## SavedVariables: qtRunnerDB
 

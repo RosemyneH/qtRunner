@@ -118,7 +118,14 @@ local function UpdateSummary()
     if qtRunnerDB.submitWithBacktick then
         tinsert(keys, "`")
     end
-    settingsUI.general.summary:SetText("Default zone: " .. qtRunner:GetDefaultZone() .. "    Theme: " .. qtRunner:GetThemeLabel(qtRunnerDB.theme or "dark") .. "    Submit keys: " .. (#keys > 0 and table.concat(keys, ", ") or "none"))
+    local integrations = {}
+    if qtRunner:IsQuestieEnabled() then
+        tinsert(integrations, "Questie")
+    end
+    if qtRunner:IsTomTomEnabled() then
+        tinsert(integrations, "TomTom")
+    end
+    settingsUI.general.summary:SetText("Default zone: " .. qtRunner:GetDefaultZone() .. "    Theme: " .. qtRunner:GetThemeLabel(qtRunnerDB.theme or "dark") .. "    Submit keys: " .. (#keys > 0 and table.concat(keys, ", ") or "none") .. "    Integrations: " .. (#integrations > 0 and table.concat(integrations, ", ") or "off"))
 end
 
 local function SetDefaultZone(zoneName)
@@ -539,7 +546,7 @@ local function BuildSettingsFrame()
     settingsUI.general = {}
     settingsUI.general.section = CreateFrame("Frame", nil, frame)
     settingsUI.general.section:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -116)
-    settingsUI.general.section:SetSize(720, 484)
+    settingsUI.general.section:SetSize(720, 560)
 
     local hero = CreatePanel(settingsUI.general.section, 720, 100, "TOPLEFT", settingsUI.general.section, "TOPLEFT", 0, 0)
     settingsUI.general.heroTitle = CreateText(hero, "GameFontNormalLarge", "TOPLEFT", hero, "TOPLEFT", 16, -14)
@@ -550,7 +557,7 @@ local function BuildSettingsFrame()
     settingsUI.general.summary = CreateText(hero, "GameFontNormal", "BOTTOMLEFT", hero, "BOTTOMLEFT", 16, 14, 660, "LEFT")
     settingsUI.general.summary.mode = "accent"
 
-    local behavior = CreatePanel(settingsUI.general.section, 350, 220, "TOPLEFT", hero, "BOTTOMLEFT", 0, -16)
+    local behavior = CreatePanel(settingsUI.general.section, 350, 296, "TOPLEFT", hero, "BOTTOMLEFT", 0, -16)
     settingsUI.general.behaviorTitle = CreateText(behavior, "GameFontNormalLarge", "TOPLEFT", behavior, "TOPLEFT", 16, -14)
     settingsUI.general.behaviorTitle:SetText("Runner behavior")
     settingsUI.general.zoneLabel = CreateText(behavior, "GameFontNormalSmall", "TOPLEFT", settingsUI.general.behaviorTitle, "BOTTOMLEFT", 0, -12, 300, "LEFT")
@@ -623,7 +630,32 @@ local function BuildSettingsFrame()
         UpdateSummary()
     end)
 
-    local theme = CreatePanel(settingsUI.general.section, 350, 220, "TOPRIGHT", hero, "BOTTOMRIGHT", 0, -16)
+    -- ʕ •ᴥ•ʔ✿ Integrations: opt-out toggles for optional addon glue ✿ ʕ •ᴥ•ʔ
+    settingsUI.general.integrationsLabel = CreateText(behavior, "GameFontNormalSmall", "TOPLEFT", settingsUI.general.graveCheck, "BOTTOMLEFT", 4, -16, 300, "LEFT")
+    settingsUI.general.integrationsLabel.mode = "muted"
+    settingsUI.general.integrationsLabel:SetText("Integrations")
+
+    settingsUI.general.questieCheck = CreateFrame("CheckButton", nil, behavior, "UICheckButtonTemplate")
+    settingsUI.general.questieCheck:SetPoint("TOPLEFT", settingsUI.general.integrationsLabel, "BOTTOMLEFT", -4, -4)
+    settingsUI.general.questieCheck.label = CreateText(behavior, "GameFontNormal", "LEFT", settingsUI.general.questieCheck, "RIGHT", 4, 1)
+    settingsUI.general.questieCheck.label:SetText("Use Questie data")
+    settingsUI.general.questieCheck:SetScript("OnClick", function(self)
+        qtRunnerDB.useQuestie = self:GetChecked() and true or false
+        UpdateSummary()
+        qtRunner:OnIntegrationChanged()
+    end)
+
+    settingsUI.general.tomtomCheck = CreateFrame("CheckButton", nil, behavior, "UICheckButtonTemplate")
+    settingsUI.general.tomtomCheck:SetPoint("TOPLEFT", settingsUI.general.questieCheck, "BOTTOMLEFT", 0, -10)
+    settingsUI.general.tomtomCheck.label = CreateText(behavior, "GameFontNormal", "LEFT", settingsUI.general.tomtomCheck, "RIGHT", 4, 1)
+    settingsUI.general.tomtomCheck.label:SetText("Set TomTom waypoints")
+    settingsUI.general.tomtomCheck:SetScript("OnClick", function(self)
+        qtRunnerDB.useTomTom = self:GetChecked() and true or false
+        UpdateSummary()
+        qtRunner:OnIntegrationChanged()
+    end)
+
+    local theme = CreatePanel(settingsUI.general.section, 350, 296, "TOPRIGHT", hero, "BOTTOMRIGHT", 0, -16)
     settingsUI.general.themeTitle = CreateText(theme, "GameFontNormalLarge", "TOPLEFT", theme, "TOPLEFT", 16, -14)
     settingsUI.general.themeTitle:SetText("Theme")
     settingsUI.general.themeCopy = CreateText(theme, "GameFontNormalSmall", "TOPLEFT", settingsUI.general.themeTitle, "BOTTOMLEFT", 0, -10, 318, "LEFT")
@@ -726,19 +758,19 @@ local function BuildSettingsFrame()
     settingsUI.tutorial.basicsTitle:SetText("Modes")
     settingsUI.tutorial.basics = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.basicsTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
     settingsUI.tutorial.basics.mode = "muted"
-    settingsUI.tutorial.basics:SetText("!q Warp · !z / !s Zone items · !x Zone quests (/a · /acc · /al · /at).  Hover ? beside the panel for full shortcuts.")
+    settingsUI.tutorial.basics:SetText("!q Warp · !z / !s Zone items · !x Zone quests (default char+account; /a · /acc · /c · /al · /at).  Hover ? beside the panel for full shortcuts.")
 
     settingsUI.tutorial.filtersTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.basics, "BOTTOMLEFT", 0, -16)
     settingsUI.tutorial.filtersTitle:SetText("Item Filters")
     settingsUI.tutorial.filters = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.filtersTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
     settingsUI.tutorial.filters.mode = "muted"
-    settingsUI.tutorial.filters:SetText("/tf /wf /lf forged tiers.  /ua unattuned char-ready.  /a or /acc account-attunable.  /ab account-attunable BOE.  /u unique-source drops.  /ub unique + char/account attunable + BOE.  /b boss drops (char-attunable).  /ba boss drops (account-side).  /t trash (non-craft).  /c crafting + char attunable.  /ca crafting + account-side.  /v vendor + char attunable.  /q quest.")
+    settingsUI.tutorial.filters:SetText("/tf /wf /lf forged tiers.  /ua unattuned char-ready.  /a or /acc account-attunable.  /ab account-attunable BOE.  /u unique drops (char attunable).  /ub char uniques + account-attunable BOE.  /b boss drops (char-attunable).  /ba boss drops (account-side).  /t trash (non-craft).  /c crafting + char attunable.  /ca crafting + account-side.  /v vendor + char attunable.  /q quest.")
 
     settingsUI.tutorial.notesTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.filters, "BOTTOMLEFT", 0, -16)
     settingsUI.tutorial.notesTitle:SetText("Examples")
     settingsUI.tutorial.notes = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.notesTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
     settingsUI.tutorial.notes.mode = "muted"
-    settingsUI.tutorial.notes:SetText("!z /u finds unique-source drops in current zone.  !z /ub finds unique char/account-attunable BOEs in current zone.  !z /ab finds account-attunable BOEs in current zone.  Combine text + token: \"mourne /b\" or \"ring /ab\".")
+    settingsUI.tutorial.notes:SetText("!z /u finds char-attunable unique-source drops in current zone.  !z /ub finds those plus account-attunable BOEs in current zone.  !z /ab finds account-attunable BOEs only.  Combine text + token: \"mourne /b\" or \"ring /ab\".")
 
     SelectTab("general")
 end
@@ -829,6 +861,8 @@ function qtRunner:RefreshSettings()
     settingsUI.general:UpdateDefaultZoneButton()
     settingsUI.general.enterCheck:SetChecked(qtRunnerDB.submitWithEnter)
     settingsUI.general.graveCheck:SetChecked(qtRunnerDB.submitWithBacktick)
+    settingsUI.general.questieCheck:SetChecked(qtRunner:IsQuestieEnabled())
+    settingsUI.general.tomtomCheck:SetChecked(qtRunner:IsTomTomEnabled())
     ToggleDefaultZoneDropdown(false)
     UpdateSummary()
     RefreshAliasRows()

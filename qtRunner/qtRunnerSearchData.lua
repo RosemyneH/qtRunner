@@ -2,9 +2,11 @@ local ipairs = ipairs
 local pairs = pairs
 local strlower = string.lower
 local strfind = string.find
+local strsub = string.sub
 local tinsert = table.insert
 local tsort = table.sort
 local math_floor = math.floor
+local math_min = math.min
 local math_sqrt = math.sqrt
 local band = bit.band
 local bor = bit.bor
@@ -107,6 +109,31 @@ local function IsSourceInZone(zoneId, zoneName)
     return false
 end
 
+local function ItemLocSourcesShareZonePrefix5(itemId)
+    if not itemId or not ItemLocGetSourceCount or not ItemLocGetSourceAt then
+        return false
+    end
+    local c = ItemLocGetSourceCount(itemId) or 0
+    if c <= 0 then
+        return false
+    end
+    local ok, _, _, _, _, _, z = pcall(ItemLocGetSourceAt, itemId, 1)
+    if not ok then
+        return false
+    end
+    local f = strsub(tostring(z or ""), 1, 5)
+    for i = 2, c do
+        ok, _, _, _, _, _, z = pcall(ItemLocGetSourceAt, itemId, i)
+        if not ok then
+            return false
+        end
+        if strsub(tostring(z or ""), 1, 5) ~= f then
+            return false
+        end
+    end
+    return true
+end
+
 local function ClassifyItemDropMeta(itemId, zoneId)
     itemId = tonumber(itemId)
     zoneId = tonumber(zoneId) or 0
@@ -122,7 +149,6 @@ local function ClassifyItemDropMeta(itemId, zoneId)
     local hasVendor = false
     local hasCraft = false
     local allSourcesInZone = true
-    local npcLootBreadthCache = {}
 
     if not itemId or not ItemLocGetSourceCount or not ItemLocGetSourceAt then
         return tier, tag, bossHits, srcTotal, hasQuest, hasVendor, hasCraft, false
@@ -175,6 +201,8 @@ local function ClassifyItemDropMeta(itemId, zoneId)
             if cid > 0 then
                 distinctCreature[cid] = true
             end
+            --[[ boss tag: ItemLocGetObjCount + instance drop-chance heuristics
+            local npcLootBreadthCache = {}
             local likelyBossByBreadth = false
             if cid > 0 and ItemLocGetObjCount then
                 local breadth = npcLootBreadthCache[cid]
@@ -194,6 +222,7 @@ local function ClassifyItemDropMeta(itemId, zoneId)
             if explicitBossName or veryHighChance or strongBossSignal then
                 bossHits = bossHits + 1
             end
+            --]]
         elseif isObjLoot then
             objectHeavy = objectHeavy + 1
         end
@@ -224,6 +253,10 @@ local function ClassifyItemDropMeta(itemId, zoneId)
         tier, tag = 4, "Mixed"
     end
 
+    if ItemLocSourcesShareZonePrefix5(itemId) and srcTotal > 0 and bossHits < 1 and tag == "Mixed" then
+        tier, tag = 1, "Unique"
+    end
+
     local zoneOnly = srcTotal > 0 and allSourcesInZone
     return tier, tag, bossHits, srcTotal, hasQuest, hasVendor, hasCraft, zoneOnly
 end
@@ -235,9 +268,11 @@ local function ItemBadgeSortRank(item)
     if item.badgeVendor then
         return 2
     end
+    --[[
     if item.dropTag == "Boss" then
         return 3
     end
+    --]]
     if item.dropTag == "Unique" then
         return 4
     end
@@ -276,19 +311,22 @@ local function MakeKey(typeId, objId)
     return tostring(typeId or -1) .. ":" .. tostring(objId or -1)
 end
 
-local function EstimateYardsFromMapPercent(distancePercent)
-    distancePercent = tonumber(distancePercent)
-    if not distancePercent then
-        return nil
-    end
-    if distancePercent <= 0 then
-        return 0
-    end
-    local yards = math_floor((distancePercent * 50) + 0.5)
-    return yards
-end
-
 local MAX_REWARD_BADGE_ITEMS = 4
+
+--[[
+Quest chain "start" semantics (QuestieDB fields):
+- chainSpineRootQuestId: root of the NextQuestId line — reverse index on nextQuestInChain (reference only in tooltips).
+- chainEntryQuestId: prerequisite roots (preQuest*) when they name a different quest than the row; if the only root
+  is the reward itself, Questie had no prereq edges so we use the nextQuestInChain spine starter instead. Several
+  roots pick the nearest starter (tie: lower quest id). Empty roots → spine. TomTom / distance / .findnpc use this.
+- chainPrereqRootQuestIds: prerequisite graph only — preQuestGroup (recurse all), preQuestSingle (recurse each OR branch)
+  until quests with no prereqs; may be several valid entry quests. Shown when useful; reward quest id on the row is still the attunable grantor.
+External SQL parity: compare quest_template.NextQuestId / PrevQuestId with Questie nextQuestInChain when auditing ambiguous reverse links.
+]]
+
+local QUEST_CHAIN_SPINE_MAX_HOPS = 384
+local QUEST_CHAIN_PREREQ_MAX_NODES = 2048
+local QUEST_CHAIN_TOOLTIP_MAX_PREREQ_IDS = 10
 
 local function CopyRewardIdsLimited(src)
     if type(src) ~= "table" or #src == 0 then
@@ -548,6 +586,9 @@ function qtRunnerSearchData:_LoadQuestieDeps()
     end
     self._questieDepsReady = true
     self._questieReady = false
+    if qtRunner and qtRunner.IsQuestieEnabled and not qtRunner:IsQuestieEnabled() then
+        return false
+    end
     local loader = rawget(_G, "QuestieLoader")
     if not loader or type(loader.ImportModule) ~= "function" then
         return false
@@ -647,6 +688,678 @@ function qtRunnerSearchData:_QuestieQueryQuest(questId, field)
         return v
     end
     return nil
+end
+
+-- ʕ •ᴥ•ʔ Quest chain spine (nextQuestInChain reverse) + prereq roots for attunable starter routing
+function qtRunnerSearchData:_EnsureQuestChainParentsIndex()
+    if self._questChainParentsBuilt then
+        return self._questChainParentsByNext ~= nil
+    end
+    self._questChainParentsBuilt = true
+    self._questChainParentsByNext = {}
+    if not self:_LoadQuestieDeps() then
+        return false
+    end
+    local db = self._questieDB
+    local parents = self._questChainParentsByNext
+    if not db or not parents then
+        return false
+    end
+    local pointers = db.QuestPointers
+    if type(pointers) ~= "table" then
+        return false
+    end
+    for questId in pairs(pointers) do
+        local qid = tonumber(questId)
+        if qid and qid > 0 then
+            local nxt = tonumber(self:_QuestieQueryQuest(qid, "nextQuestInChain") or 0) or 0
+            if nxt > 0 then
+                local t = parents[nxt]
+                if not t then
+                    t = {}
+                    parents[nxt] = t
+                end
+                t[#t + 1] = qid
+            end
+        end
+    end
+    return true
+end
+
+function qtRunnerSearchData:_QuestChainSpineRoot(rewardQuestId)
+    local current = tonumber(rewardQuestId) or 0
+    if current <= 0 then
+        return 0
+    end
+    if not self:_EnsureQuestChainParentsIndex() then
+        return current
+    end
+    local parents = self._questChainParentsByNext
+    local guard = {}
+    local hops = 0
+    while hops < QUEST_CHAIN_SPINE_MAX_HOPS do
+        hops = hops + 1
+        local plist = parents[current]
+        if type(plist) ~= "table" or #plist == 0 then
+            break
+        end
+        if guard[current] then
+            break
+        end
+        guard[current] = true
+        local pick = plist[1]
+        for i = 2, #plist do
+            if plist[i] < pick then
+                pick = plist[i]
+            end
+        end
+        current = pick
+    end
+    return current
+end
+
+function qtRunnerSearchData:_QuestChainSpineStarterQuestId(rewardQuestId)
+    local r = tonumber(rewardQuestId) or 0
+    if r <= 0 then
+        return 0
+    end
+    local root = self:_QuestChainSpineRoot(r)
+    local rr = tonumber(root) or 0
+    if rr <= 0 then
+        return r
+    end
+    return rr
+end
+
+-- ʕ •ᴥ•ʔ Prereq-graph entry for travel; multi-root → nearest starter (duo picks one by distance)
+function qtRunnerSearchData:_QuestChainTravelStarterQuestId(rewardQuestId, hintZoneId)
+    local r = tonumber(rewardQuestId) or 0
+    if r <= 0 then
+        return 0
+    end
+    local hint = tonumber(hintZoneId) or 0
+    if hint <= 0 then
+        hint = tonumber(self:GetCurrentZoneId()) or 0
+    end
+    local roots = self:_QuestChainPrereqRootsList(r)
+    if type(roots) ~= "table" or #roots == 0 then
+        return self:_QuestChainSpineStarterQuestId(r)
+    end
+    if #roots == 1 then
+        local only = tonumber(roots[1])
+        if not only or only <= 0 then
+            return self:_QuestChainSpineStarterQuestId(r)
+        end
+        if only ~= r then
+            return only
+        end
+        return self:_QuestChainSpineStarterQuestId(r)
+    end
+    local bestQ, bestDist = nil, 1e100
+    for i = 1, #roots do
+        local qid = tonumber(roots[i])
+        if qid and qid > 0 then
+            local x, y, zid = self:_ResolveQuestStarterCoords(qid, hint)
+            local sid = (zid and zid > 0) and zid or hint
+            local yards = self:_DistanceYardsQuestieWorld(sid, x, y)
+            local d = tonumber(yards) or 1e100
+            if d < bestDist or (d == bestDist and (not bestQ or qid < bestQ)) then
+                bestDist = d
+                bestQ = qid
+            end
+        end
+    end
+    if bestQ then
+        return bestQ
+    end
+    return tonumber(roots[1]) or self:_QuestChainSpineStarterQuestId(r)
+end
+
+-- ʕ •ᴥ•ʔ Collapse multiple attunable rows that share one Questie nextQuestInChain line
+function qtRunnerSearchData:_QuestChainForwardMembershipFromSpine(spineRoot)
+    local set = {}
+    local cur = tonumber(spineRoot) or 0
+    local hops = 0
+    while cur and cur > 0 and hops < QUEST_CHAIN_SPINE_MAX_HOPS do
+        hops = hops + 1
+        set[cur] = true
+        local nq = tonumber(self:_QuestieQueryQuest(cur, "nextQuestInChain") or 0) or 0
+        if nq <= 0 then
+            break
+        end
+        cur = nq
+    end
+    return set
+end
+
+function qtRunnerSearchData:_QuestChainLineMemberSetToLast(spineRoot, lastQuestId)
+    local set = {}
+    local spine = tonumber(spineRoot) or 0
+    local last = tonumber(lastQuestId) or 0
+    if spine <= 0 or last <= 0 then
+        return set
+    end
+    local cur = spine
+    local hops = 0
+    while cur > 0 and hops < QUEST_CHAIN_SPINE_MAX_HOPS do
+        hops = hops + 1
+        set[cur] = true
+        if cur == last then
+            return set
+        end
+        cur = tonumber(self:_QuestieQueryQuest(cur, "nextQuestInChain") or 0) or 0
+    end
+    return set
+end
+
+function qtRunnerSearchData:_QuestChainOrderRankFromRoot(spineRoot, questId)
+    local target = tonumber(questId) or 0
+    local cur = tonumber(spineRoot) or 0
+    if target <= 0 then
+        return 1e9
+    end
+    if cur <= 0 then
+        return 1e8 + target
+    end
+    local rank = 0
+    local hops = 0
+    while cur > 0 and hops < QUEST_CHAIN_SPINE_MAX_HOPS do
+        hops = hops + 1
+        if cur == target then
+            return rank
+        end
+        rank = rank + 1
+        cur = tonumber(self:_QuestieQueryQuest(cur, "nextQuestInChain") or 0) or 0
+    end
+    return 1e8 + target
+end
+
+function qtRunnerSearchData:_MergeAttunableQuestRowCluster(grp, tracked, familySpineForSort)
+    tsort(grp, function(a, b)
+        local da = tonumber(a.distance) or 1e99
+        local db = tonumber(b.distance) or 1e99
+        if da ~= db then
+            return da < db
+        end
+        return (tonumber(a.questId) or 0) < (tonumber(b.questId) or 0)
+    end)
+    local best = grp[1]
+    local idSeen = {}
+    local orderedRewards = {}
+    for i = 1, #grp do
+        local qi = tonumber(grp[i].questId)
+        if qi and qi > 0 and not idSeen[qi] then
+            idSeen[qi] = true
+            orderedRewards[#orderedRewards + 1] = qi
+        end
+    end
+    local spine = tonumber(familySpineForSort) or tonumber(best.chainSpineRootQuestId) or 0
+    if spine > 0 then
+        tsort(orderedRewards, function(x, y)
+            local rx = self:_QuestChainOrderRankFromRoot(spine, x)
+            local ry = self:_QuestChainOrderRankFromRoot(spine, y)
+            if rx ~= ry then
+                return rx < ry
+            end
+            return x < y
+        end)
+    else
+        tsort(orderedRewards)
+    end
+    local mergedItems = {}
+    local itemSeen = {}
+    for i = 1, #grp do
+        local list = grp[i].rewardItemIds
+        if type(list) == "table" then
+            for k = 1, #list do
+                local iid = tonumber(list[k])
+                if iid and iid > 0 and not itemSeen[iid] and #mergedItems < MAX_REWARD_BADGE_ITEMS then
+                    itemSeen[iid] = true
+                    mergedItems[#mergedItems + 1] = iid
+                end
+            end
+        end
+    end
+    local primaryQ = orderedRewards[1]
+    local nameParts = {}
+    for i = 1, #orderedRewards do
+        local qid = orderedRewards[i]
+        nameParts[#nameParts + 1] = (Custom_GetQuestName and Custom_GetQuestName(qid)) or ("Quest #" .. tostring(qid))
+    end
+    local combinedName = table.concat(nameParts, " → ")
+    local charAtt = false
+    local accountAtt = false
+    local wrongF = false
+    local factionBadge = best.factionBadge or ""
+    for i = 1, #grp do
+        if grp[i].charAttunable then
+            charAtt = true
+        end
+        if grp[i].accountAttunable then
+            accountAtt = true
+        end
+        if grp[i].wrongFaction then
+            wrongF = true
+        end
+    end
+    for i = 1, #grp do
+        if grp[i].accountAttunable and grp[i].factionBadge and grp[i].factionBadge ~= "" then
+            factionBadge = grp[i].factionBadge
+            break
+        end
+    end
+    local starterQuestId = tonumber(best.chainEntryQuestId) or primaryQ
+    local attuneRank = self:_GetQuestAttuneSortRank(charAtt, accountAtt)
+    return {
+        questId = primaryQ,
+        questName = combinedName,
+        zoneId = best.zoneId,
+        zoneName = best.zoneName,
+        x = best.x,
+        y = best.y,
+        distance = best.distance,
+        distanceMapPercent = best.distanceMapPercent,
+        distanceYards = best.distanceYards,
+        tracked = self:IsTracked(tracked, OBJTYPE_QUEST, starterQuestId),
+        charAttunable = charAtt,
+        accountAttunable = accountAtt,
+        starterNpcName = best.starterNpcName,
+        chainEntryQuestId = starterQuestId,
+        chainSpineRootQuestId = best.chainSpineRootQuestId,
+        chainPrereqRootQuestIds = best.chainPrereqRootQuestIds,
+        chainTooltipExtra = best.chainTooltipExtra,
+        rewardItemIds = mergedItems,
+        rewardItemId = mergedItems[1],
+        wrongFaction = wrongF,
+        factionBadge = factionBadge,
+        attuneRank = attuneRank,
+        chainRewardQuestIds = orderedRewards,
+    }
+end
+
+function qtRunnerSearchData:_CollectChainRootCandidates(rows, zoneId)
+    local seen = {}
+    local out = {}
+    local zid = tonumber(zoneId) or 0
+    for i = 1, #rows do
+        local row = rows[i]
+        local qid = tonumber(row and row.questId) or 0
+        if qid > 0 then
+            local s = tonumber(self:_QuestChainSpineRoot(qid)) or 0
+            if s > 0 and not seen[s] then
+                seen[s] = true
+                out[#out + 1] = s
+            end
+            local rowSpine = tonumber(row.chainSpineRootQuestId) or 0
+            if rowSpine > 0 and not seen[rowSpine] then
+                seen[rowSpine] = true
+                out[#out + 1] = rowSpine
+            end
+            local spineStart = tonumber(self:_QuestChainSpineStarterQuestId(qid)) or 0
+            if spineStart > 0 and not seen[spineStart] then
+                seen[spineStart] = true
+                out[#out + 1] = spineStart
+            end
+            if zid > 0 then
+                local travel = tonumber(self:_QuestChainTravelStarterQuestId(qid, zid)) or 0
+                if travel > 0 and not seen[travel] then
+                    seen[travel] = true
+                    out[#out + 1] = travel
+                end
+            end
+        end
+    end
+    tsort(out)
+    return out
+end
+
+function qtRunnerSearchData:_QuestChainPickUpstreamRootForReward(rewardQuestId, candidateRoots)
+    local rewardQ = tonumber(rewardQuestId) or 0
+    if rewardQ <= 0 then
+        return 0
+    end
+    if type(candidateRoots) ~= "table" or #candidateRoots == 0 then
+        return tonumber(self:_QuestChainSpineRoot(rewardQ)) or rewardQ
+    end
+    local valid = {}
+    for i = 1, #candidateRoots do
+        local r = tonumber(candidateRoots[i]) or 0
+        if r > 0 then
+            local line = self:_QuestChainForwardMembershipFromSpine(r)
+            if line[rewardQ] then
+                valid[#valid + 1] = r
+            end
+        end
+    end
+    if #valid == 0 then
+        return tonumber(self:_QuestChainSpineRoot(rewardQ)) or rewardQ
+    end
+    if #valid == 1 then
+        return valid[1]
+    end
+    for i = 1, #valid do
+        local r = valid[i]
+        local upstream = true
+        for j = 1, #valid do
+            local s = valid[j]
+            if s ~= r then
+                local lineS = self:_QuestChainForwardMembershipFromSpine(s)
+                if lineS[r] then
+                    upstream = false
+                    break
+                end
+            end
+        end
+        if upstream then
+            return r
+        end
+    end
+    return valid[1]
+end
+
+function qtRunnerSearchData:_AttunableRowApplyFamilyChainStart(row, zoneId, familyRootQuestId, tracked)
+    if type(row) ~= "table" then
+        return row
+    end
+    local fr = tonumber(familyRootQuestId) or 0
+    if fr <= 0 then
+        fr = tonumber(row.chainSpineRootQuestId) or tonumber(row.questId) or 0
+    end
+    if fr <= 0 then
+        return row
+    end
+    local zid = tonumber(zoneId) or 0
+    row.chainFamilyRootQuestId = fr
+    row.chainSpineRootQuestId = fr
+    local starterQuestId = tonumber(self:_QuestChainTravelStarterQuestId(fr, zid)) or fr
+    row.chainEntryQuestId = starterQuestId
+    row.starterNpcName = self:_ResolveQuestStarterNpcName(starterQuestId)
+    local x, y, starterZoneId = self:_ResolveQuestStarterCoords(starterQuestId, zid)
+    row.x = x
+    row.y = y
+    row.zoneId = starterZoneId or zid
+    local sid = tonumber(row.zoneId) or zid
+    local yardEstimate = self:_DistanceYardsQuestieWorld(sid, x, y)
+    row.distance = yardEstimate or 999999999
+    row.distanceYards = yardEstimate
+    local primaryReward = tonumber(row.questId) or 0
+    row.chainPrereqRootQuestIds = self:_QuestChainPrereqRootsList(primaryReward)
+    row.chainTooltipExtra = self:GetQuestChainTooltipExtra(fr, primaryReward, row.chainPrereqRootQuestIds)
+    row.tracked = self:IsTracked(tracked, OBJTYPE_QUEST, starterQuestId)
+    return row
+end
+
+function qtRunnerSearchData:_CollapseAttunableQuestRowsByFamily(rows, tracked, zoneId)
+    if type(rows) ~= "table" or #rows == 0 then
+        return rows
+    end
+    local candidates = self:_CollectChainRootCandidates(rows, zoneId)
+    local n = #rows
+    local keys = {}
+    for i = 1, n do
+        keys[i] = self:_QuestChainPickUpstreamRootForReward(rows[i].questId, candidates)
+    end
+    if n == 1 then
+        return { self:_AttunableRowApplyFamilyChainStart(rows[1], zoneId, keys[1], tracked) }
+    end
+    local parent = {}
+    for i = 1, n do
+        parent[i] = i
+    end
+    local function ufind(i)
+        while parent[i] ~= i do
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        end
+        return i
+    end
+    local function uunion(ai, bj)
+        local ra, rb = ufind(ai), ufind(bj)
+        if ra ~= rb then
+            parent[rb] = ra
+        end
+    end
+    for i = 1, n do
+        for j = i + 1, n do
+            local ki, kj = tonumber(keys[i]) or 0, tonumber(keys[j]) or 0
+            if ki > 0 and ki == kj then
+                uunion(i, j)
+            end
+        end
+    end
+    local clusters = {}
+    for i = 1, n do
+        local r = ufind(i)
+        if not clusters[r] then
+            clusters[r] = {}
+        end
+        tinsert(clusters[r], i)
+    end
+    local out = {}
+    for _, idxList in pairs(clusters) do
+        local fam = keys[idxList[1]]
+        local grp = {}
+        for ii = 1, #idxList do
+            grp[#grp + 1] = rows[idxList[ii]]
+        end
+        if #grp == 1 then
+            tinsert(out, self:_AttunableRowApplyFamilyChainStart(grp[1], zoneId, fam, tracked))
+        else
+            local merged = self:_MergeAttunableQuestRowCluster(grp, tracked, fam)
+            tinsert(out, self:_AttunableRowApplyFamilyChainStart(merged, zoneId, fam, tracked))
+        end
+    end
+    return out
+end
+
+function qtRunnerSearchData:_CollapseAttunableQuestRowsBySharedChainEntry(rows, tracked, zoneId)
+    if type(rows) ~= "table" or #rows <= 1 then
+        return rows
+    end
+    local z0 = tonumber(zoneId) or 0
+    local n = #rows
+    local keys = {}
+    for i = 1, n do
+        local r = rows[i]
+        local e = tonumber(r and r.chainEntryQuestId) or 0
+        local z = tonumber(r and r.zoneId) or z0
+        if e > 0 then
+            keys[i] = tostring(z) .. ":" .. tostring(e)
+        else
+            keys[i] = "isolated:" .. tostring(i)
+        end
+    end
+    local parent = {}
+    for i = 1, n do
+        parent[i] = i
+    end
+    local function ufind(i)
+        while parent[i] ~= i do
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        end
+        return i
+    end
+    local function uunion(ai, bj)
+        local ra, rb = ufind(ai), ufind(bj)
+        if ra ~= rb then
+            parent[rb] = ra
+        end
+    end
+    for i = 1, n do
+        for j = i + 1, n do
+            if keys[i] == keys[j] and strsub(keys[i], 1, 10) ~= "isolated:" then
+                uunion(i, j)
+            end
+        end
+    end
+    local clusters = {}
+    for i = 1, n do
+        local r = ufind(i)
+        if not clusters[r] then
+            clusters[r] = {}
+        end
+        tinsert(clusters[r], i)
+    end
+    local out = {}
+    for _, idxList in pairs(clusters) do
+        local grp = {}
+        for ii = 1, #idxList do
+            grp[#grp + 1] = rows[idxList[ii]]
+        end
+        if #grp == 1 then
+            tinsert(out, grp[1])
+        else
+            tsort(grp, function(a, b)
+                local da = tonumber(a.distance) or 1e99
+                local db = tonumber(b.distance) or 1e99
+                if da ~= db then
+                    return da < db
+                end
+                return (tonumber(a.questId) or 0) < (tonumber(b.questId) or 0)
+            end)
+            local best = grp[1]
+            local famSpine = tonumber(best.chainFamilyRootQuestId) or tonumber(best.chainSpineRootQuestId) or 0
+            local merged = self:_MergeAttunableQuestRowCluster(grp, tracked, famSpine > 0 and famSpine or nil)
+            local entryStable = tonumber(merged.chainEntryQuestId) or tonumber(best.chainEntryQuestId) or 0
+            if entryStable > 0 then
+                merged = self:_AttunableRowApplyFamilyChainStart(merged, zoneId, entryStable, tracked)
+            end
+            local tipSeen = {}
+            local tipParts = {}
+            for ii = 1, #grp do
+                local t = grp[ii].chainTooltipExtra
+                if t and t ~= "" and not tipSeen[t] then
+                    tipSeen[t] = true
+                    tipParts[#tipParts + 1] = t
+                end
+            end
+            if #tipParts > 1 then
+                merged.chainTooltipExtra = table.concat(tipParts, "\n\n")
+            elseif #tipParts == 1 then
+                merged.chainTooltipExtra = tipParts[1]
+            end
+            tinsert(out, merged)
+        end
+    end
+    return out
+end
+
+function qtRunnerSearchData:_QuestChainPrereqChildIds(questId)
+    local db = self._questieDB
+    if not db or not db.GetQuest or not self:_QuestieHasQuest(questId) then
+        return nil
+    end
+    local qid = tonumber(questId) or 0
+    if qid <= 0 then
+        return nil
+    end
+    local ok, qd = pcall(function()
+        return db.GetQuest(qid)
+    end)
+    if not ok or not qd then
+        return nil
+    end
+    local out = {}
+    if type(qd.preQuestGroup) == "table" then
+        for _, v in pairs(qd.preQuestGroup) do
+            local id = tonumber(v)
+            if id and id > 0 then
+                out[#out + 1] = id
+            end
+        end
+    end
+    if type(qd.preQuestSingle) == "table" then
+        for _, v in pairs(qd.preQuestSingle) do
+            local id = tonumber(v)
+            if id and id > 0 then
+                out[#out + 1] = id
+            end
+        end
+    else
+        local one = tonumber(qd.preQuestSingle)
+        if one and one > 0 then
+            out[#out + 1] = one
+        end
+    end
+    if #out == 0 then
+        return nil
+    end
+    return out
+end
+
+function qtRunnerSearchData:_QuestChainPrereqRootsList(rewardQuestId)
+    local rootSet = {}
+    local stack = {}
+    local n0 = tonumber(rewardQuestId) or 0
+    if n0 > 0 then
+        stack[1] = n0
+    end
+    local visited = {}
+    local nodes = 0
+    while #stack > 0 and nodes < QUEST_CHAIN_PREREQ_MAX_NODES do
+        local qid = stack[#stack]
+        stack[#stack] = nil
+        if qid and qid > 0 then
+            if not visited[qid] then
+                visited[qid] = true
+                nodes = nodes + 1
+                local kids = self:_QuestChainPrereqChildIds(qid)
+                if not kids then
+                    rootSet[qid] = true
+                else
+                    for i = 1, #kids do
+                        local c = kids[i]
+                        if c and c > 0 and not visited[c] then
+                            stack[#stack + 1] = c
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local list = {}
+    for q in pairs(rootSet) do
+        list[#list + 1] = q
+    end
+    tsort(list)
+    return list
+end
+
+function qtRunnerSearchData:GetQuestChainTooltipExtra(chainSpineRootQuestId, rewardQuestId, chainPrereqRootQuestIds)
+    local spine = tonumber(chainSpineRootQuestId) or 0
+    local rwd = tonumber(rewardQuestId) or 0
+    local parts = {}
+    if spine > 0 and rwd > 0 and spine ~= rwd then
+        local n = (Custom_GetQuestName and Custom_GetQuestName(spine)) or ("#" .. tostring(spine))
+        tinsert(parts, "Chain start (NextQuestId line): " .. n .. " (" .. tostring(spine) .. ")")
+    end
+    local plist = chainPrereqRootQuestIds
+    if type(plist) == "table" and #plist > 0 then
+        local lim = QUEST_CHAIN_TOOLTIP_MAX_PREREQ_IDS
+        if #plist > 1 then
+            local shown = {}
+            for i = 1, math_min(#plist, lim) do
+                local id = tonumber(plist[i])
+                if id and id > 0 then
+                    local n = (Custom_GetQuestName and Custom_GetQuestName(id)) or ("#" .. tostring(id))
+                    shown[#shown + 1] = n .. " (" .. tostring(id) .. ")"
+                end
+            end
+            local tail = (#plist > lim) and (" (+" .. tostring(#plist - lim) .. " more)") or ""
+            tinsert(parts, "Prerequisite entry points: " .. table.concat(shown, ", ") .. tail)
+        else
+            local only = tonumber(plist[1])
+            if only and only > 0 and only ~= rwd and only ~= spine then
+                local n = (Custom_GetQuestName and Custom_GetQuestName(only)) or ("#" .. tostring(only))
+                tinsert(parts, "Prerequisite root: " .. n .. " (" .. tostring(only) .. ")")
+            end
+        end
+    end
+    if #parts == 0 then
+        return nil
+    end
+    return table.concat(parts, "\n")
 end
 
 function qtRunnerSearchData:ResolveNpcDisplayName(npcId)
@@ -797,6 +1510,8 @@ end
 
 function qtRunnerSearchData:ClearQuestieAttunableCache()
     self._attunableQuestMetaCache = nil
+    self._questChainParentsByNext = nil
+    self._questChainParentsBuilt = false
 end
 
 function qtRunnerSearchData:_QuestInZoneByQuestie(questId, zoneId)
@@ -1179,6 +1894,9 @@ function qtRunnerSearchData:_AddTomTomWaypointsForQuestRows(rows)
     if type(rows) ~= "table" or #rows == 0 or not TomTom then
         return 0
     end
+    if qtRunner and qtRunner.IsTomTomEnabled and not qtRunner:IsTomTomEnabled() then
+        return 0
+    end
     local way = SlashCmdList and SlashCmdList["TOMTOM_WAY"] or nil
     if type(way) ~= "function" then
         return 0
@@ -1227,7 +1945,13 @@ function qtRunnerSearchData:GetAttunableQuestRowsForZone(zoneId)
                 local wrongFaction = self:_GetQuestWrongFaction(questId)
                 local factionBadge = self:_QuestFactionSideBadge(questId)
                 local attuneRank = self:_GetQuestAttuneSortRank(charAttunable, accountAttunable)
-                local x, y, starterZoneId = self:_ResolveQuestStarterCoords(questId, zoneId)
+                local chainSpineRootQuestId = self:_QuestChainSpineRoot(questId)
+                if not chainSpineRootQuestId or chainSpineRootQuestId <= 0 then
+                    chainSpineRootQuestId = questId
+                end
+                local chainPrereqRootQuestIds = self:_QuestChainPrereqRootsList(questId)
+                local starterQuestId = self:_QuestChainTravelStarterQuestId(questId, zoneId)
+                local x, y, starterZoneId = self:_ResolveQuestStarterCoords(starterQuestId, zoneId)
                 local sid = starterZoneId or zoneId
                 local yardEstimate = self:_DistanceYardsQuestieWorld(sid, x, y)
                 local d = yardEstimate or 999999999
@@ -1241,10 +1965,14 @@ function qtRunnerSearchData:GetAttunableQuestRowsForZone(zoneId)
                     distance = d,
                     distanceMapPercent = nil,
                     distanceYards = yardEstimate,
-                    tracked = self:IsTracked(tracked, OBJTYPE_QUEST, questId),
+                    tracked = self:IsTracked(tracked, OBJTYPE_QUEST, starterQuestId),
                     charAttunable = charAttunable,
                     accountAttunable = accountAttunable,
-                    starterNpcName = self:_ResolveQuestStarterNpcName(questId),
+                    starterNpcName = self:_ResolveQuestStarterNpcName(starterQuestId),
+                    chainEntryQuestId = starterQuestId,
+                    chainSpineRootQuestId = chainSpineRootQuestId,
+                    chainPrereqRootQuestIds = chainPrereqRootQuestIds,
+                    chainTooltipExtra = self:GetQuestChainTooltipExtra(chainSpineRootQuestId, questId, chainPrereqRootQuestIds),
                     rewardItemIds = CopyRewardIdsLimited(metaRow and metaRow.rewardItemIds or nil),
                     rewardItemId = metaRow and metaRow.firstRewardItemId or nil,
                     wrongFaction = wrongFaction,
@@ -1254,6 +1982,8 @@ function qtRunnerSearchData:GetAttunableQuestRowsForZone(zoneId)
             end
         end
     end
+    rows = self:_CollapseAttunableQuestRowsByFamily(rows, tracked, zoneId)
+    rows = self:_CollapseAttunableQuestRowsBySharedChainEntry(rows, tracked, zoneId)
     tsort(rows, function(a, b)
         local da = a.distance or 999999999
         local db = b.distance or 999999999
@@ -1276,13 +2006,18 @@ function qtRunnerSearchData:GetAttunableQuestRowsForZone(zoneId)
 end
 
 function qtRunnerSearchData:BulkTrackZoneAttunableQuests(zoneId)
+    local tomtomActive = (TomTom ~= nil) and (not qtRunner or not qtRunner.IsTomTomEnabled or qtRunner:IsTomTomEnabled())
     local quests, source = self:GetAttunableQuestRowsForZone(zoneId)
     if source ~= "questie" then
-        return nil, { source = source, added = 0, sorted = 0, waypoints = 0, tomtom = (TomTom ~= nil) }
+        return nil, { source = source, added = 0, sorted = 0, waypoints = 0, tomtom = tomtomActive }
     end
     local list = {}
     for i = 1, #quests do
-        list[#list + 1] = quests[i].questId
+        local row = quests[i]
+        local tid = tonumber(row.chainEntryQuestId) or tonumber(row.questId)
+        if tid and tid > 0 then
+            list[#list + 1] = tid
+        end
     end
     local added = self:TrackQuestSet(list)
     local waypoints = self:_AddTomTomWaypointsForQuestRows(quests)
@@ -1291,7 +2026,7 @@ function qtRunnerSearchData:BulkTrackZoneAttunableQuests(zoneId)
         added = added or 0,
         sorted = #quests,
         waypoints = waypoints or 0,
-        tomtom = (TomTom ~= nil),
+        tomtom = tomtomActive,
     }
 end
 
@@ -1734,8 +2469,47 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
             local questId = tonumber(q.questId)
             if questId and questId > 0 and not seen[questId] then
                 local completed = (Custom_GetQuestCompleted and Custom_GetQuestCompleted(questId)) and true or false
-                local canAccept = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(questId)) or 0) > 0
                 local onQuest = (Custom_IsOnQuest and Custom_IsOnQuest(questId)) and true or false
+                local canAccept = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(questId)) or 0) > 0
+                local cr = q.chainRewardQuestIds
+                if type(cr) == "table" then
+                    for ci = 1, #cr do
+                        local rq = tonumber(cr[ci])
+                        if rq and rq > 0 and rq ~= questId then
+                            if Custom_IsOnQuest and Custom_IsOnQuest(rq) then
+                                onQuest = true
+                            end
+                            if ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(rq)) or 0) > 0 then
+                                canAccept = true
+                            end
+                        end
+                    end
+                    if #cr > 1 then
+                        local spine = tonumber(q.chainSpineRootQuestId) or 0
+                        local lastR = tonumber(cr[#cr]) or 0
+                        if spine > 0 and lastR > 0 then
+                            local cov = self:_QuestChainLineMemberSetToLast(spine, lastR)
+                            for midId in pairs(cov) do
+                                local mq = tonumber(midId)
+                                if mq then
+                                    if Custom_IsOnQuest and Custom_IsOnQuest(mq) then
+                                        onQuest = true
+                                    end
+                                    if ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(mq)) or 0) > 0 then
+                                        canAccept = true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                local chainEntryId = tonumber(q.chainEntryQuestId) or questId
+                local availableChain = onQuest or canAccept
+                if chainEntryId > 0 and chainEntryId ~= questId then
+                    local onEntry = (Custom_IsOnQuest and Custom_IsOnQuest(chainEntryId)) and true or false
+                    local canEntry = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(chainEntryId)) or 0) > 0
+                    availableChain = onEntry or canEntry or onQuest or canAccept
+                end
                 local distance = q.distance
                 if type(distance) ~= "number" then
                     distance = 999999999
@@ -1749,11 +2523,13 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
                 rows[#rows + 1] = {
                     typeId = OBJTYPE_QUEST,
                     objId = questId,
+                    trackQuestId = chainEntryId,
                     name = q.questName or ((Custom_GetQuestName and Custom_GetQuestName(questId)) or ("Quest #" .. questId)),
                     onQuest = onQuest,
                     completed = completed,
                     canAccept = canAccept,
-                    tracked = self:IsTracked(tracked, OBJTYPE_QUEST, questId),
+                    availableChain = availableChain,
+                    tracked = self:IsTracked(tracked, OBJTYPE_QUEST, chainEntryId),
                     x = q.x,
                     y = q.y,
                     zoneId = q.zoneId or zoneId,
@@ -1765,25 +2541,31 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
                     charAttunable = q.charAttunable and true or false,
                     accountAttunable = q.accountAttunable and true or false,
                     starterNpcName = q.starterNpcName,
+                    chainEntryQuestId = q.chainEntryQuestId,
+                    chainSpineRootQuestId = q.chainSpineRootQuestId,
+                    chainPrereqRootQuestIds = q.chainPrereqRootQuestIds,
+                    chainTooltipExtra = q.chainTooltipExtra,
                     rewardItemIds = q.rewardItemIds,
                     rewardItemId = rewardItemId,
                     rewardIcon = rewardIcon,
                     wrongFaction = q.wrongFaction and true or false,
                     factionBadge = q.factionBadge or "",
                     attuneRank = tonumber(q.attuneRank) or 3,
+                    chainRewardQuestIds = q.chainRewardQuestIds,
                 }
                 seen[questId] = true
             end
         end
     else
+        -- ʕ •ᴥ•ʔ✿ Questie missing: surface every quest on the item tracker, not just current-zone rows ✿ ʕ •ᴥ•ʔ
         local objectives = self:GetTrackerObjectives()
         for i = 1, #objectives do
             local obj = objectives[i]
-            local objZone = obj.zoneId
-            if objZone == 0 then
-                objZone = zoneId
-            end
-            if objZone == zoneId and obj.objType == 2 and obj.objId and obj.objId > 0 and not seen[obj.objId] then
+            if obj.objType == OBJTYPE_QUEST and obj.objId and obj.objId > 0 and not seen[obj.objId] then
+                local objZone = obj.zoneId
+                if objZone == 0 then
+                    objZone = zoneId
+                end
                 local questId = obj.objId
                 local qflags = Custom_GetQuestData and Custom_GetQuestData(questId) or nil
                 local valid = (qflags ~= nil) and band(qflags, QUEST_INVALID_FLAG) == 0
@@ -1793,19 +2575,34 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
                     local completed = (Custom_GetQuestCompleted and Custom_GetQuestCompleted(questId)) and true or false
                     local canAccept = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(questId)) or 0) > 0
                     seen[questId] = true
-                    local qx, qy, qz = self:_ResolveQuestStarterCoords(questId, objZone)
-                    local starterNpcName = self:_ResolveQuestStarterNpcName(questId)
+                    local starterQ = self:_QuestChainTravelStarterQuestId(questId, objZone)
+                    local availableChain = onQuest or canAccept
+                    if starterQ > 0 and starterQ ~= questId then
+                        local onEntry = (Custom_IsOnQuest and Custom_IsOnQuest(starterQ)) and true or false
+                        local canEntry = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(starterQ)) or 0) > 0
+                        availableChain = onEntry or canEntry or onQuest or canAccept
+                    end
+                    local qx, qy, qz = self:_ResolveQuestStarterCoords(starterQ, objZone)
+                    local starterNpcName = self:_ResolveQuestStarterNpcName(starterQ)
                     local sid = (qz and qz > 0) and qz or objZone
                     local distanceYards = self:_DistanceYardsQuestieWorld(sid, qx, qy)
                     local distance = distanceYards or 999999999
+                    local spineRoot = self:_QuestChainSpineRoot(questId)
+                    if not spineRoot or spineRoot <= 0 then
+                        spineRoot = questId
+                    end
+                    local prereqRoots = self:_QuestChainPrereqRootsList(questId)
+                    local trackQ = (starterQ and starterQ > 0) and starterQ or questId
                     tinsert(rows, {
                         typeId = OBJTYPE_QUEST,
                         objId = questId,
+                        trackQuestId = trackQ,
                         name = questName,
                         onQuest = onQuest,
                         completed = completed,
                         canAccept = canAccept,
-                        tracked = self:IsTracked(tracked, OBJTYPE_QUEST, questId),
+                        availableChain = availableChain,
+                        tracked = self:IsTracked(tracked, OBJTYPE_QUEST, trackQ),
                         x = qx,
                         y = qy,
                         zoneId = (qz and qz > 0) and qz or objZone,
@@ -1817,6 +2614,10 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
                         charAttunable = false,
                         accountAttunable = false,
                         starterNpcName = starterNpcName,
+                        chainEntryQuestId = starterQ,
+                        chainSpineRootQuestId = spineRoot,
+                        chainPrereqRootQuestIds = prereqRoots,
+                        chainTooltipExtra = self:GetQuestChainTooltipExtra(spineRoot, questId, prereqRoots),
                         rewardItemIds = nil,
                         rewardItemId = nil,
                         rewardIcon = nil,
@@ -1829,8 +2630,8 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
         end
     end
     tsort(rows, function(a, b)
-        local aa = (a.onQuest or a.canAccept) and 1 or 0
-        local ab = (b.onQuest or b.canAccept) and 1 or 0
+        local aa = (a.availableChain or a.onQuest or a.canAccept) and 1 or 0
+        local ab = (b.availableChain or b.onQuest or b.canAccept) and 1 or 0
         if aa ~= ab then return aa > ab end
         local da = tonumber(a.distance) or 999999999
         local db = tonumber(b.distance) or 999999999
@@ -1852,11 +2653,15 @@ function qtRunnerSearchData:SetTomTomWaypointForQuest(questId, fallbackX, fallba
     if not TomTom then
         return false
     end
+    if qtRunner and qtRunner.IsTomTomEnabled and not qtRunner:IsTomTomEnabled() then
+        return false
+    end
     local way = SlashCmdList and SlashCmdList["TOMTOM_WAY"] or nil
     if type(way) ~= "function" then
         return false
     end
-    local x, y, zoneId = self:_ResolveQuestStarterCoords(questId, fallbackZoneId)
+    local starterQuestId = self:_QuestChainTravelStarterQuestId(questId, fallbackZoneId)
+    local x, y, zoneId = self:_ResolveQuestStarterCoords(starterQuestId, fallbackZoneId)
     if not x or not y then
         x = tonumber(fallbackX)
         y = tonumber(fallbackY)
@@ -2121,8 +2926,8 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
         return strlower(a.name) < strlower(b.name)
     end)
     tsort(quests, function(a, b)
-        local pa = (a.onQuest or a.canAccept) and 1 or 0
-        local pb = (b.onQuest or b.canAccept) and 1 or 0
+        local pa = (a.availableChain or a.onQuest or a.canAccept) and 1 or 0
+        local pb = (b.availableChain or b.onQuest or b.canAccept) and 1 or 0
         if pa ~= pb then
             return pa > pb
         end

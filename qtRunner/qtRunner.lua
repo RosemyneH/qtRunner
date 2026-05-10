@@ -22,6 +22,8 @@ local defaults = {
     theme = "dark",
     submitWithEnter = true,
     submitWithBacktick = true,
+    useQuestie = true,
+    useTomTom = true,
 }
 
 local runnerFrame = nil
@@ -44,6 +46,7 @@ local trackToggleButton = nil
 local trackClearButton = nil
 local trackActionsFrame = nil
 local zoneHelpButton = nil
+local qtRunnerRewardsTooltip = nil
 
 local FRAME_W = 208
 local ICON_SIZE = 56
@@ -73,9 +76,59 @@ local function ZoneItemEntryHyperlink(entry)
     return nil
 end
 
-local function AppendEntryTooltipExtras(entry)
+local function HideQTRunnerRewardTooltip()
+    if qtRunnerRewardsTooltip and qtRunnerRewardsTooltip:IsShown() then
+        qtRunnerRewardsTooltip:Hide()
+    end
+end
+
+local function AddRewardItemRowToTooltip(tt, itemId)
+    itemId = tonumber(itemId)
+    if not itemId or itemId <= 0 or not tt then
+        return
+    end
+    local name, link, tex
+    if qtRunnerSearchData and qtRunnerSearchData.ResolveItemDisplay then
+        name, link, tex = qtRunnerSearchData:ResolveItemDisplay(itemId)
+    else
+        if GetItemInfo then
+            local n, l, _, _, _, _, _, _, _, t = GetItemInfo(itemId)
+            name = n
+            link = l
+            tex = t
+        end
+        if (not tex or tex == "") and GetItemIcon then
+            tex = GetItemIcon(itemId)
+        end
+    end
+    if not tex or tex == "" then
+        tex = "Interface\\Icons\\INV_Misc_QuestionMark"
+    end
+    local text = (link and link ~= "") and link or (name and ("item:" .. name) or ("item:" .. tostring(itemId)))
+    local icon = "|T" .. tex .. ":" .. ROW_ICON .. ":" .. ROW_ICON .. ":0:0|t "
+    tt:AddLine(icon .. text, 0.9, 0.95, 1)
+end
+
+local function ShowQTRunnerRewardTooltip(entry)
+    if not qtRunnerRewardsTooltip or not entry or not entry.rewardItemIds then
+        return
+    end
+    qtRunnerRewardsTooltip:SetOwner(GameTooltip, "ANCHOR_NONE")
+    qtRunnerRewardsTooltip:ClearLines()
+    qtRunnerRewardsTooltip:AddLine("Attunable Rewards", 0.95, 0.85, 0.35)
+    for i = 1, #entry.rewardItemIds do
+        AddRewardItemRowToTooltip(qtRunnerRewardsTooltip, entry.rewardItemIds[i])
+    end
+    qtRunnerRewardsTooltip:SetPoint("BOTTOMLEFT", GameTooltip, "BOTTOMRIGHT", 4, 0)
+    qtRunnerRewardsTooltip:Show()
+end
+
+local function AppendEntryTooltipExtras(entry, skipQuestRewardsOnPrimary)
     if entry and entry.tooltipDrop then
         GameTooltip:AddLine(entry.tooltipDrop, 0.78, 0.88, 1)
+    end
+    if skipQuestRewardsOnPrimary and entry and entry.mode == "zone_quests" then
+        return
     end
     if entry and entry.rewardItemIds and type(entry.rewardItemIds) == "table" and #entry.rewardItemIds > 0 then
         GameTooltip:AddLine(" ")
@@ -86,29 +139,7 @@ local function AppendEntryTooltipExtras(entry)
                 GameTooltip:AddLine("... +" .. tostring(#entry.rewardItemIds - maxShow) .. " more", 0.7, 0.7, 0.7)
                 break
             end
-            local itemId = tonumber(entry.rewardItemIds[i])
-            if itemId and itemId > 0 then
-                local name, link, tex
-                if qtRunnerSearchData and qtRunnerSearchData.ResolveItemDisplay then
-                    name, link, tex = qtRunnerSearchData:ResolveItemDisplay(itemId)
-                else
-                    if GetItemInfo then
-                        local n, l, _, _, _, _, _, _, _, t = GetItemInfo(itemId)
-                        name = n
-                        link = l
-                        tex = t
-                    end
-                    if (not tex or tex == "") and GetItemIcon then
-                        tex = GetItemIcon(itemId)
-                    end
-                end
-                if not tex or tex == "" then
-                    tex = "Interface\\Icons\\INV_Misc_QuestionMark"
-                end
-                local text = (link and link ~= "") and link or (name and ("item:" .. name) or ("item:" .. tostring(itemId)))
-                local icon = "|T" .. tex .. ":" .. ROW_ICON .. ":" .. ROW_ICON .. ":0:0|t "
-                GameTooltip:AddLine(icon .. text, 0.9, 0.95, 1)
-            end
+            AddRewardItemRowToTooltip(GameTooltip, entry.rewardItemIds[i])
         end
     end
 end
@@ -119,6 +150,58 @@ local function HideCompareTooltips()
     end
     if ShoppingTooltip2 and ShoppingTooltip2:IsShown() then
         ShoppingTooltip2:Hide()
+    end
+end
+
+local function ShowRunnerEntryTooltip(owner, entry)
+    if not owner or not entry then
+        return
+    end
+    HideQTRunnerRewardTooltip()
+    local zoneHyp = ZoneItemEntryHyperlink(entry)
+    if entry.mode == "zone_items" then
+        if zoneHyp then
+            GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink(zoneHyp)
+            HideCompareTooltips()
+            if entry.tooltipAttune then
+                GameTooltip:AddLine(entry.tooltipAttune, 1, 1, 1)
+            end
+            AppendEntryTooltipExtras(entry)
+            GameTooltip:Show()
+        elseif entry.tooltipAttune then
+            GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+            GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
+            GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
+            AppendEntryTooltipExtras(entry)
+            GameTooltip:Show()
+        end
+    elseif entry.mode == "zone_quests" and entry.tooltipQuestLines and type(entry.tooltipQuestLines) == "table" then
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
+        for i = 1, #entry.tooltipQuestLines do
+            GameTooltip:AddLine(entry.tooltipQuestLines[i], 1, 1, 1, true)
+        end
+        AppendEntryTooltipExtras(entry, true)
+        GameTooltip:Show()
+        if entry.rewardItemIds and type(entry.rewardItemIds) == "table" and #entry.rewardItemIds > 0 then
+            ShowQTRunnerRewardTooltip(entry)
+        end
+    elseif entry.tooltipAttune then
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
+        GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
+        AppendEntryTooltipExtras(entry)
+        GameTooltip:Show()
+    elseif entry.itemLink then
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink(entry.itemLink)
+        HideCompareTooltips()
+        AppendEntryTooltipExtras(entry)
+        GameTooltip:Show()
     end
 end
 
@@ -655,7 +738,8 @@ function qtRunner:ActivateSelectedEntry(submitOpts)
     else
         qtRunnerSearchMode:ActivateEntry(entry)
         if submitOpts and submitOpts.skipToggleTrack then
-            local tid, oid = entry.typeId, entry.objId
+            local tid = entry.typeId
+            local oid = qtRunnerSearchMode:GetEntryTrackObjId(entry)
             if tid ~= nil and oid then
                 local tracked = qtRunnerSearchData:GetTrackedLookup()
                 if not qtRunnerSearchData:IsTracked(tracked, tid, oid) then
@@ -701,8 +785,9 @@ function qtRunner:TrackSearchResults()
     local rows = {}
     for i = 1, #currentEntries do
         local entry = currentEntries[i]
-        if entry and entry.typeId ~= nil and entry.objId then
-            local key = TrackKey(entry.typeId, entry.objId)
+        local trackOid = qtRunnerSearchMode:GetEntryTrackObjId(entry)
+        if entry and entry.typeId ~= nil and trackOid then
+            local key = TrackKey(entry.typeId, trackOid)
             if not seen[key] then
                 seen[key] = true
                 rows[#rows + 1] = entry
@@ -714,14 +799,35 @@ function qtRunner:TrackSearchResults()
     end
     for i = 1, #rows do
         local entry = rows[i]
-        local key = TrackKey(entry.typeId, entry.objId)
-        local isTracked = qtRunnerSearchData:IsTracked(tracked, entry.typeId, entry.objId)
+        local trackOid = qtRunnerSearchMode:GetEntryTrackObjId(entry)
+        local key = TrackKey(entry.typeId, trackOid)
+        local isTracked = qtRunnerSearchData:IsTracked(tracked, entry.typeId, trackOid)
         if not isTracked then
-            qtRunnerSearchData:ToggleTracked(entry.typeId, entry.objId, tracked)
+            qtRunnerSearchData:ToggleTracked(entry.typeId, trackOid, tracked)
             tracked[key] = true
         end
     end
     self:RefreshRunnerList()
+    if qtRunnerSearchMode.mode == "zone_quests" then
+        local bestEntry, bestDist = nil, math.huge
+        for j = 1, #rows do
+            local e = rows[j]
+            if e.mode == "zone_quests" then
+                local d = tonumber(e.distance)
+                if not d or d ~= d then
+                    d = 999999999
+                end
+                if d < bestDist then
+                    bestDist = d
+                    bestEntry = e
+                end
+            end
+        end
+        if bestEntry then
+            qtRunnerSearchMode:ActivateEntry(bestEntry)
+        end
+        self:HideRunner()
+    end
 end
 
 function qtRunner:ClearTrackedObjects()
@@ -789,11 +895,6 @@ local function QtRunnerShowModeHelpTooltip(owner)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF!q|r", "Warp list (this screen)", 1, 1, 1, 0.72, 0.82, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF!s|r", "Zone items (same as !z)", 1, 1, 1, 0.72, 0.82, 1)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("|cFFCCAA66Hold Ctrl|r", 0.85, 0.75, 0.55)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFFZ|r", "Zone items", 1, 1, 1, 0.78, 0.85, 1)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFFX|r", "Zone quests", 1, 1, 1, 0.78, 0.85, 1)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFFQ|r", "Warp", 1, 1, 1, 0.78, 0.85, 1)
-        GameTooltip:AddLine(" ", 1, 1, 1)
         GameTooltip:AddDoubleLine("|cFFFFFFFF!w|r", "Clear all tracked & close", 0.9, 0.92, 1, 0.65, 0.7, 0.78)
         GameTooltip:AddLine(" ", 1, 1, 1)
         GameTooltip:AddLine("|cFF666666Type to filter zone names.|r", 0.55, 0.58, 0.62)
@@ -808,16 +909,17 @@ local function QtRunnerShowModeHelpTooltip(owner)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF!x|r", "Zone quests (refresh)", 1, 1, 1, 0.72, 0.82, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF!s|r", "Zone items (same as !z)", 1, 1, 1, 0.72, 0.82, 1)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("|cFFCCAA66Hold Ctrl — Z / X / Q|r", 0.85, 0.75, 0.55)
         GameTooltip:AddLine("|cFF888888Quest filters (in search text)|r", 0.75, 0.8, 0.88)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFF/a|r", "Account-attunable + wider faction pool", 1, 1, 1, 0.72, 0.8, 1)
+        GameTooltip:AddLine("  |cFFAAAAAADefault:|r character + account; rival faction hidden (use /a or /acc).", 0.72, 0.76, 0.82)
+        GameTooltip:AddDoubleLine("  |cFFFFFFFF/a|r", "Account attune + all factions (incl. rival tags)", 1, 1, 1, 0.72, 0.8, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/acc|r", "Account-only list + [A]/[H] tags", 1, 1, 1, 0.72, 0.8, 1)
+        GameTooltip:AddDoubleLine("  |cFFFFFFFF/c|r", "This character only (hide account-only rows)", 1, 1, 1, 0.72, 0.8, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/al|r |cFF888888·|r |cFFFFFFFF/all|r", "Bulk track zone quests (+ TomTom if set)", 1, 1, 1, 0.72, 0.8, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/at|r", "Bulk track tracker quest set", 1, 1, 1, 0.72, 0.8, 1)
         GameTooltip:AddLine(" ", 1, 1, 1)
         GameTooltip:AddDoubleLine("|cFFFFFFFF!w|r", "Clear all tracked & close", 0.9, 0.92, 1, 0.65, 0.7, 0.78)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("|cFF666666Combine name text with tokens — e.g. ice /acc|r", 0.55, 0.58, 0.62)
+        GameTooltip:AddLine("|cFF666666Combine name text with tokens — e.g. ice /a, ring /c, chain /acc|r", 0.55, 0.58, 0.62)
         GameTooltip:Show()
         return
     end
@@ -846,8 +948,8 @@ local function QtRunnerShowModeHelpTooltip(owner)
         GameTooltip:AddLine("|cFFB48CFFSource / attune|r", 0.7, 0.55, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/a|r |cFF888888·|r |cFFFFFFFF/acc|r", "Account attune filters", 0.92, 0.88, 1, 0.82, 0.75, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/ab|r", "Account attunable BOE", 0.92, 0.88, 1, 0.82, 0.75, 1)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFF/u|r", "Unique-source drops", 0.92, 0.88, 1, 0.82, 0.75, 1)
-        GameTooltip:AddDoubleLine("  |cFFFFFFFF/ub|r", "Unique + attune + BOE", 0.92, 0.88, 1, 0.82, 0.75, 1)
+        GameTooltip:AddDoubleLine("  |cFFFFFFFF/u|r", "Unique drops (char attunable)", 0.92, 0.88, 1, 0.82, 0.75, 1)
+        GameTooltip:AddDoubleLine("  |cFFFFFFFF/ub|r", "Char uniques + account BOE", 0.92, 0.88, 1, 0.82, 0.75, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/t|r", "Trash drops", 0.92, 0.88, 1, 0.82, 0.75, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/c|r", "Craft + char attunable", 0.92, 0.88, 1, 0.82, 0.75, 1)
         GameTooltip:AddDoubleLine("  |cFFFFFFFF/ca|r", "Craft + account-side", 0.92, 0.88, 1, 0.82, 0.75, 1)
@@ -878,6 +980,10 @@ local function CreateRunnerFrame()
     runnerFrame:SetBackdropBorderColor(0.2, 0.28, 0.38, 0.45)
     runnerFrame:Hide()
     runnerFrame:EnableKeyboard(true)
+
+    qtRunnerRewardsTooltip = CreateFrame("GameTooltip", "qtRunnerRewardsTooltip", UIParent, "GameTooltipTemplate")
+    qtRunnerRewardsTooltip:SetFrameStrata("TOOLTIP")
+    qtRunnerRewardsTooltip:Hide()
 
     zoneHelpButton = CreateFrame("Button", nil, runnerFrame)
     zoneHelpButton:SetSize(18, 18)
@@ -917,40 +1023,11 @@ local function CreateRunnerFrame()
     previewHitBtn:SetScript("OnEnter", function()
         local entry = GetSelectedEntry()
         if not entry then return end
-        local zoneHyp = ZoneItemEntryHyperlink(entry)
-        if entry.mode == "zone_items" then
-            if zoneHyp then
-                GameTooltip:SetOwner(previewHitBtn, "ANCHOR_RIGHT")
-                GameTooltip:SetHyperlink(zoneHyp)
-                HideCompareTooltips()
-                if entry.tooltipAttune then
-                    GameTooltip:AddLine(entry.tooltipAttune, 1, 1, 1)
-                end
-                AppendEntryTooltipExtras(entry)
-                GameTooltip:Show()
-            elseif entry.tooltipAttune then
-                GameTooltip:SetOwner(previewHitBtn, "ANCHOR_RIGHT")
-                GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
-                GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
-                AppendEntryTooltipExtras(entry)
-                GameTooltip:Show()
-            end
-        elseif entry.tooltipAttune then
-            GameTooltip:SetOwner(previewHitBtn, "ANCHOR_RIGHT")
-            GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
-            GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
-            AppendEntryTooltipExtras(entry)
-            GameTooltip:Show()
-        elseif entry.itemLink then
-            GameTooltip:SetOwner(previewHitBtn, "ANCHOR_RIGHT")
-            GameTooltip:SetHyperlink(entry.itemLink)
-            HideCompareTooltips()
-            AppendEntryTooltipExtras(entry)
-            GameTooltip:Show()
-        end
+        ShowRunnerEntryTooltip(previewHitBtn, entry)
     end)
     previewHitBtn:SetScript("OnLeave", function()
         GameTooltip:Hide()
+        HideQTRunnerRewardTooltip()
     end)
 
     selectedNameText = runnerFrame:CreateFontString(nil, "OVERLAY", "QuestFont_Large")
@@ -1100,40 +1177,11 @@ local function CreateRunnerFrame()
             local idx = self.listIndex
             local entry = idx and currentEntries[idx]
             if not entry then return end
-            local zoneHyp = ZoneItemEntryHyperlink(entry)
-            if entry.mode == "zone_items" then
-                if zoneHyp then
-                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:SetHyperlink(zoneHyp)
-                    HideCompareTooltips()
-                    if entry.tooltipAttune then
-                        GameTooltip:AddLine(entry.tooltipAttune, 1, 1, 1)
-                    end
-                    AppendEntryTooltipExtras(entry)
-                    GameTooltip:Show()
-                elseif entry.tooltipAttune then
-                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
-                    GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
-                    AppendEntryTooltipExtras(entry)
-                    GameTooltip:Show()
-                end
-            elseif entry.tooltipAttune then
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(entry.label or "", 1, 1, 1, true)
-                GameTooltip:AddLine(entry.tooltipAttune, 0.92, 0.92, 1)
-                AppendEntryTooltipExtras(entry)
-                GameTooltip:Show()
-            elseif entry.itemLink then
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetHyperlink(entry.itemLink)
-                HideCompareTooltips()
-                AppendEntryTooltipExtras(entry)
-                GameTooltip:Show()
-            end
+            ShowRunnerEntryTooltip(self, entry)
         end)
         btn:SetScript("OnLeave", function()
             GameTooltip:Hide()
+            HideQTRunnerRewardTooltip()
         end)
         lineButtons[i] = btn
     end
@@ -1203,6 +1251,7 @@ end
 
 function qtRunner:HideRunner()
     self:CloseLootDbWindow()
+    HideQTRunnerRewardTooltip()
     if runnerFrame then
         runnerFrame:SetScript("OnUpdate", nil)
         runnerFrame:Hide()

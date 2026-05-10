@@ -228,15 +228,48 @@ function qtRunner:ApplyTheme()
     end
 end
 
+function qtRunner:IsQuestieEnabled()
+    if qtRunnerDB and qtRunnerDB.useQuestie == false then
+        return false
+    end
+    return true
+end
+
+function qtRunner:IsTomTomEnabled()
+    if qtRunnerDB and qtRunnerDB.useTomTom == false then
+        return false
+    end
+    return true
+end
+
+function qtRunner:OnIntegrationChanged()
+    if qtRunnerSearchData then
+        qtRunnerSearchData._questieDepsReady = nil
+        qtRunnerSearchData._questieReady = nil
+        if qtRunnerSearchData.ClearQuestieAttunableCache then
+            qtRunnerSearchData:ClearQuestieAttunableCache()
+        end
+    end
+    if qtRunnerSearchMode and qtRunnerSearchMode.MarkDirty then
+        qtRunnerSearchMode:MarkDirty()
+    end
+    if self.RefreshRunnerList then
+        self:RefreshRunnerList()
+    end
+end
+
 function qtRunner:ResetDefaults()
     qtRunnerDB.defaultZone = "Dalaran"
     qtRunnerDB.theme = "dark"
     qtRunnerDB.submitWithEnter = true
     qtRunnerDB.submitWithBacktick = true
+    qtRunnerDB.useQuestie = true
+    qtRunnerDB.useTomTom = true
     qtRunnerDB.aliases = qtRunnerData:GetDefaultAliases()
     qtRunnerData:SetAliases(qtRunnerDB.aliases)
     if self.RefreshSettings then
         self:RefreshSettings()
     end
     self:ApplyTheme()
+    self:OnIntegrationChanged()
 end

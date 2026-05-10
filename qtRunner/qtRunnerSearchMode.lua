@@ -56,7 +56,21 @@ local FORGE_BADGE_COLORS = {
 
 local function RowForgeItemTier(item)
 
-    if not item or not item.objId or not qtRunnerSearchData or not qtRunnerSearchData.GetForgeItemTier then
+    if not item or not item.objId then
+
+        return nil
+
+    end
+
+    local cached = tonumber(item.forgeItemTier)
+
+    if cached == ATTUNE_FORGE_TF or cached == ATTUNE_FORGE_WF or cached == ATTUNE_FORGE_LF then
+
+        return cached
+
+    end
+
+    if not qtRunnerSearchData or not qtRunnerSearchData.GetForgeItemTier then
 
         return nil
 
@@ -466,6 +480,7 @@ local function ItemPassesForgeTokens(item, want)
             and not item.badgeVendor
             and not item.badgeQuest
             and not item.badgeCraft
+            and item.canAttuneHelperOne
         then
             hit = true
         end
@@ -476,18 +491,17 @@ local function ItemPassesForgeTokens(item, want)
 
         any = true
 
-        local charAttunable = item.canAttuneHelperOne or (item.unattuned and not item.badgeAcc)
-        local accountAttunable = item.badgeAcc or (item.canAttuneHelperRaw ~= nil and item.canAttuneHelperRaw < 1)
-        local attunableEither = charAttunable or accountAttunable
-
-        if item.dropTag == "Unique"
-            and item.isBoe
-            and item.isAttunableTag
-            and attunableEither
+        local charUnique = item.dropTag == "Unique"
             and not item.badgeVendor
             and not item.badgeQuest
             and not item.badgeCraft
-        then
+            and item.canAttuneHelperOne
+        local accBoeShare = item.badgeAcc and item.isBoe and item.isAttunableTag
+            and not item.badgeCraft
+            and not item.badgeVendor
+            and item.dropTag ~= "Trash"
+
+        if charUnique or accBoeShare then
             hit = true
         end
 
@@ -517,6 +531,46 @@ local function MatchQuery(name, query)
 
     return strfind(strlower(name or ""), strlower(query), 1, true) ~= nil
 
+end
+
+local function ZoneQuestMatchesQuery(quest, questQuery)
+    if not questQuery or questQuery == "" then
+        return true
+    end
+    if MatchQuery(quest.name, questQuery) then
+        return true
+    end
+    local entryId = tonumber(quest.chainEntryQuestId) or tonumber(quest.objId)
+    if Custom_GetQuestName and entryId and entryId > 0 then
+        if MatchQuery(Custom_GetQuestName(entryId), questQuery) then
+            return true
+        end
+    end
+    local rid = tonumber(quest.rewardItemId)
+    if rid and rid > 0 and GetItemInfo then
+        if MatchQuery(GetItemInfo(rid), questQuery) then
+            return true
+        end
+    end
+    if type(quest.rewardItemIds) == "table" then
+        for j = 1, #quest.rewardItemIds do
+            local iid = tonumber(quest.rewardItemIds[j])
+            if iid and iid > 0 and GetItemInfo then
+                if MatchQuery(GetItemInfo(iid), questQuery) then
+                    return true
+                end
+            end
+        end
+    end
+    if type(quest.chainRewardQuestIds) == "table" and Custom_GetQuestName then
+        for j = 1, #quest.chainRewardQuestIds do
+            local cq = tonumber(quest.chainRewardQuestIds[j])
+            if cq and cq > 0 and MatchQuery(Custom_GetQuestName(cq), questQuery) then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 
@@ -681,7 +735,10 @@ local function SourceBadgesColored(item, noTrailingSpace, wantAcc)
 
     end
 
-    if wantAcc and item.badgeAcc then
+    local accBadge = item.badgeAcc
+        and (wantAcc or (item.dropTag == "Unique" and item.isBoe and not item.canAttuneHelperOne))
+
+    if accBadge then
 
         s = s .. "|cFFFFCC00[ACC]|r"
 
@@ -875,6 +932,20 @@ function qtRunnerSearchMode:InstallTrackerHook(onRefresh)
 
         self.zoneEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
+        -- ʕ •ᴥ•ʔ✿ ItemHuntFrame populates async after zone change, schedule a 2s one-shot rebuild ✿ ʕ •ᴥ•ʔ
+        local trackerDelay = CreateFrame("Frame")
+        trackerDelay:Hide()
+        trackerDelay:SetScript("OnUpdate", function(frame)
+            if GetTime() < (frame.deadline or 0) then return end
+            frame:Hide()
+            if qtRunnerSearchData and qtRunnerSearchData.ClearQuestieAttunableCache then
+                qtRunnerSearchData:ClearQuestieAttunableCache()
+            end
+            self:MarkDirty()
+            if onRefresh then onRefresh() end
+        end)
+        self.zoneTrackerDelayFrame = trackerDelay
+
         self.zoneEventFrame:SetScript("OnEvent", function()
 
             if qtRunnerSearchData and qtRunnerSearchData.ClearQuestieAttunableCache then
@@ -890,6 +961,9 @@ function qtRunnerSearchMode:InstallTrackerHook(onRefresh)
                 onRefresh()
 
             end
+
+            trackerDelay.deadline = GetTime() + 2
+            trackerDelay:Show()
 
         end)
 
@@ -1127,6 +1201,7 @@ function qtRunnerSearchMode:BuildEntries(query)
         local wantAccountAny = false
         local wantAccountOnly = false
         local wantCrossFaction = false
+        local wantCharOnly = false
         local questQuery = tostring(query or "")
         questQuery = questQuery:gsub("/%s*([%a]+)", function(w)
             local lw = strlower(w)
@@ -1141,30 +1216,45 @@ function qtRunnerSearchMode:BuildEntries(query)
                 wantCrossFaction = true
                 return " "
             end
+            if lw == "c" then
+                wantCharOnly = true
+                return " "
+            end
             return "/" .. w
         end)
         questQuery = questQuery:gsub("%s+", " ")
         questQuery = questQuery:gsub("^%s+", ""):gsub("%s+$", "")
 
+        local scopeTipLine
+        if wantCharOnly then
+            scopeTipLine = "|cFF888888List scope: this character only (/c).|r"
+        elseif wantAccountOnly then
+            scopeTipLine = "|cFF888888List scope: account-only alt-side rewards (/acc).|r"
+        elseif wantAccountAny then
+            scopeTipLine = "|cFF888888List scope: account attune + all factions (/a).|r"
+        else
+            scopeTipLine = "|cFF888888List scope: character + account; rival faction hidden (/a or /acc).|r"
+        end
+
         for i = 1, #quests do
 
             local quest = quests[i]
 
-            if MatchQuery(quest.name, questQuery) then
-                if quest.wrongFaction and not wantCrossFaction and not quest.accountAttunable then
+            if ZoneQuestMatchesQuery(quest, questQuery) then
+                if quest.wrongFaction and not wantCrossFaction then
                 elseif wantAccountAny and not quest.accountAttunable then
                 elseif wantAccountOnly and quest.charAttunable then
+                elseif wantCharOnly and not quest.charAttunable then
+                elseif not wantAccountAny and not quest.charAttunable and not quest.accountAttunable then
                 else
 
                 local factionPrefix = ""
-                if quest.wrongFaction and quest.factionBadge and quest.factionBadge ~= "" then
-                    if wantCrossFaction or quest.accountAttunable then
-                        factionPrefix = quest.factionBadge
-                    end
+                if wantCrossFaction and quest.wrongFaction and quest.factionBadge and quest.factionBadge ~= "" then
+                    factionPrefix = quest.factionBadge
                 end
                 local badge = ""
                 local rowColor = { r = 0.86, g = 0.9, b = 1 }
-                local availableNow = quest.onQuest or quest.canAccept
+                local availableNow = (quest.availableChain ~= nil and quest.availableChain) or quest.onQuest or quest.canAccept
                 if quest.charAttunable then
                     rowColor = { r = 0.55, g = 1, b = 0.55 }
                 elseif quest.accountAttunable then
@@ -1179,7 +1269,49 @@ function qtRunnerSearchMode:BuildEntries(query)
                 local mapPct = tonumber(quest.distanceMapPercent)
                 local mapPctLabel = mapPct and string.format("%.2f%% map span", mapPct) or "world yards (Questie)"
                 local availLabel = availableNow and "Available now" or "Not currently pickable"
-                local tip = "Starter distance: " .. distLabel .. "\nMap distance: " .. mapPctLabel .. "\nAvailability: " .. availLabel .. "\nThis is travel-to-starter only; chain/objective completion time is not included."
+                local entryId = tonumber(quest.chainEntryQuestId) or tonumber(quest.objId)
+                local entryName = (Custom_GetQuestName and Custom_GetQuestName(entryId)) or ("#" .. tostring(entryId))
+                local listRowQuestTitle = quest.name
+                if entryId and quest.objId and entryId ~= quest.objId and entryName and entryName ~= "" then
+                    listRowQuestTitle = entryName
+                end
+                local L = "|cFF88CCFF"
+                local V = "|cFFFFFFFF"
+                local G = "|cFF66EE66"
+                local R = "|cFFCC7070"
+                local QN = "|cFFFFD200"
+                local QID = "|cFF909090"
+                local DIM = "|cFF888888"
+                local HDR = "|cFFFFCC66"
+
+                local tooltipQuestLines = {}
+                tinsert(tooltipQuestLines, scopeTipLine)
+                tinsert(tooltipQuestLines, L .. "Starter distance:|r " .. V .. distLabel .. "|r")
+                tinsert(tooltipQuestLines, L .. "Map distance:|r " .. V .. mapPctLabel .. "|r")
+                local availCol = availableNow and G or R
+                tinsert(tooltipQuestLines, L .. "Availability:|r " .. availCol .. availLabel .. "|r")
+                tinsert(tooltipQuestLines, L .. "Available at this quest point:|r " .. QN .. entryName .. "|r " .. QID .. "(" .. tostring(entryId) .. ")|r")
+                if type(quest.chainPrereqRootQuestIds) == "table" and #quest.chainPrereqRootQuestIds > 1 then
+                    tinsert(tooltipQuestLines, "  " .. DIM .. "Several Questie prerequisite starts; this row picks the nearest starter.|r")
+                end
+                if type(quest.chainRewardQuestIds) == "table" and #quest.chainRewardQuestIds > 1 then
+                    tinsert(tooltipQuestLines, HDR .. "Attunable / reward quests (merged chain line):|r")
+                    for ai = 1, #quest.chainRewardQuestIds do
+                        local qid = tonumber(quest.chainRewardQuestIds[ai])
+                        if qid and qid > 0 then
+                            local qn = (Custom_GetQuestName and Custom_GetQuestName(qid)) or ("#" .. tostring(qid))
+                            tinsert(tooltipQuestLines, "  " .. QN .. qn .. "|r " .. QID .. "(" .. tostring(qid) .. ")|r")
+                        end
+                    end
+                else
+                    tinsert(tooltipQuestLines, L .. "Attunable / reward quest:|r " .. QN .. quest.name .. "|r " .. QID .. "(" .. tostring(quest.objId) .. ")|r")
+                end
+                if quest.chainTooltipExtra and quest.chainTooltipExtra ~= "" then
+                    tinsert(tooltipQuestLines, " ")
+                    for segment in string.gmatch(quest.chainTooltipExtra, "[^\n]+") do
+                        tinsert(tooltipQuestLines, DIM .. segment .. "|r")
+                    end
+                end
 
                 tinsert(entries, {
 
@@ -1188,18 +1320,26 @@ function qtRunnerSearchMode:BuildEntries(query)
                     typeId = quest.typeId,
 
                     objId = quest.objId,
+                    trackQuestId = quest.trackQuestId,
                     questId = quest.objId,
                     questName = quest.name,
+                    listRowQuestTitle = listRowQuestTitle,
+                    distance = quest.distance,
                     x = quest.x,
                     y = quest.y,
                     zoneId = quest.zoneId,
                     starterNpcName = quest.starterNpcName,
+                    chainEntryQuestId = quest.chainEntryQuestId,
+                    chainSpineRootQuestId = quest.chainSpineRootQuestId,
+                    chainPrereqRootQuestIds = quest.chainPrereqRootQuestIds,
+                    chainRewardQuestIds = quest.chainRewardQuestIds,
                     rewardItemIds = quest.rewardItemIds,
                     rewardItemId = quest.rewardItemId,
 
-                    label = factionPrefix .. badge .. quest.name,
+                    label = factionPrefix .. badge .. listRowQuestTitle,
 
-                    tooltipAttune = tip,
+                    tooltipAttune = nil,
+                    tooltipQuestLines = tooltipQuestLines,
                     tooltipDrop = nil,
 
                     icon = quest.rewardIcon or "Interface\\Icons\\INV_Misc_Note_01",
@@ -1313,11 +1453,13 @@ function qtRunnerSearchMode:ActivateEntry(entry)
     ]]
     elseif entry.mode == "zone_quests" and entry.objId then
 
-        qtRunnerSearchData:SetTomTomWaypointForQuest(entry.objId, entry.x, entry.y, entry.zoneId, entry.questName or entry.label)
+        local questRefId = self:GetEntryTrackObjId(entry) or entry.objId
+        qtRunnerSearchData:SetTomTomWaypointForQuest(questRefId, entry.x, entry.y, entry.zoneId, entry.listRowQuestTitle or entry.questName or entry.label)
 
         local npcName = entry.starterNpcName
         if not npcName or npcName == "" then
-            npcName = qtRunnerSearchData:_ResolveQuestStarterNpcName(entry.objId)
+            local travelStarter = qtRunnerSearchData:_QuestChainTravelStarterQuestId(questRefId, entry.zoneId)
+            npcName = qtRunnerSearchData:_ResolveQuestStarterNpcName(travelStarter)
         end
         if npcName and npcName ~= "" then
             SendChatMessage(".findnpc " .. npcName, "SAY")
@@ -1329,7 +1471,7 @@ function qtRunnerSearchMode:ActivateEntry(entry)
             if rewardItemId and rewardItemId > 0 and qtRunner and qtRunner.FastLootDbFirstSource then
                 qtRunner:FastLootDbFirstSource(rewardItemId)
             else
-                print("qtRunner: no starter NPC name for questId=" .. tostring(entry.objId))
+                print("qtRunner: no starter NPC name for questId=" .. tostring(questRefId))
             end
         end
 
@@ -1349,7 +1491,11 @@ function qtRunnerSearchMode:BulkTrackZoneQuests()
     local quests = qtRunnerSearchData:GetZoneQuestEntries(zoneId)
     list = {}
     for i = 1, #quests do
-        list[#list + 1] = quests[i].objId
+        local qrow = quests[i]
+        local tid = tonumber(qrow.trackQuestId) or tonumber(qrow.chainEntryQuestId) or tonumber(qrow.objId)
+        if tid and tid > 0 then
+            list[#list + 1] = tid
+        end
     end
     local added = qtRunnerSearchData:TrackQuestSet(list)
     return added, {
@@ -1373,15 +1519,30 @@ end
 
 
 
+function qtRunnerSearchMode:GetEntryTrackObjId(entry)
+    if not entry then
+        return nil
+    end
+    local t = tonumber(entry.trackQuestId)
+    if entry.mode == "zone_quests" and t and t > 0 then
+        return t
+    end
+    return tonumber(entry.objId)
+end
+
 function qtRunnerSearchMode:ToggleTrackForEntry(entry)
 
-    if not entry or entry.typeId == nil or not entry.objId then
+    if not entry or entry.typeId == nil then
 
         return
 
     end
+    local oid = self:GetEntryTrackObjId(entry)
+    if not oid then
+        return
+    end
 
-    qtRunnerSearchData:ToggleTracked(entry.typeId, entry.objId)
+    qtRunnerSearchData:ToggleTracked(entry.typeId, oid)
 
 end
 
