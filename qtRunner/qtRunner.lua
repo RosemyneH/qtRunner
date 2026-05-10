@@ -15,7 +15,7 @@ local GetSpellInfo = GetSpellInfo
 local InterfaceOptionsFrame_OpenToCategory = InterfaceOptionsFrame_OpenToCategory
 
 qtRunner = {}
-qtRunner.version = "bangarang"
+qtRunner.version = "bangarang PR 3"
 
 local defaults = {
     defaultZone = "Dalaran",
