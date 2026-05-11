@@ -54,6 +54,8 @@ local ROW_ICON = 20
 local LINE_HEIGHT = 26
 local LIST_HEIGHT = 168
 local NUM_VISIBLE = math_max(1, math_floor(LIST_HEIGHT / LINE_HEIGHT))
+-- ʕ •ᴥ•ʔ Track bar (20) + extra gaps vs list tucked under search only (+24) ✿ ʕ •ᴥ•ʔ
+local TRACK_ACTIONS_EXTRA_HEIGHT = 24
 
 local function Trim(text)
     return strgsub(text or "", "^%s*(.-)%s*$", "%1")
@@ -388,7 +390,8 @@ local function LayoutRunnerTrackAndList()
         runnerFrame.dropBg:ClearAllPoints()
         runnerFrame.dropBg:SetPoint("TOP", runnerFrame.searchBg, "BOTTOM", 0, -gap)
     end
-    runnerFrame:SetHeight(ICON_SIZE + 112 + LIST_HEIGHT + 8)
+    local hExtra = showActions and TRACK_ACTIONS_EXTRA_HEIGHT or 0
+    runnerFrame:SetHeight(ICON_SIZE + 112 + LIST_HEIGHT + 8 + hExtra)
 end
 
 local learnedZonesCache = nil
