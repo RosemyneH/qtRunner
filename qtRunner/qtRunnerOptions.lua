@@ -758,7 +758,7 @@ local function BuildSettingsFrame()
     settingsUI.tutorial.basicsTitle:SetText("Modes")
     settingsUI.tutorial.basics = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.basicsTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
     settingsUI.tutorial.basics.mode = "muted"
-    settingsUI.tutorial.basics:SetText("!q Warp · !z / !s Zone items · !x Zone quests (default char+account; /a · /acc · /c · /al · /at).  Hover ? beside the panel for full shortcuts.")
+    settingsUI.tutorial.basics:SetText("!q Warp · !z / !s Zone items · !x Zone quests (default char+account; /a · /acc · /c · /al · /at).  Hover ? at the top-right inside the panel for full shortcuts.")
 
     settingsUI.tutorial.filtersTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.basics, "BOTTOMLEFT", 0, -16)
     settingsUI.tutorial.filtersTitle:SetText("Item Filters")
