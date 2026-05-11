@@ -316,6 +316,9 @@ function qtRunner:HandleSearchTextChanged(text)
             end
         end
         if text:match("^%s*!%s*w%s*$") then
+            if qtRunnerDB then
+                qtRunnerDB.lastBangPick = "w"
+            end
             qtRunnerSearchMode:ClearTracked()
             self:HideRunner()
             return true
@@ -323,6 +326,9 @@ function qtRunner:HandleSearchTextChanged(text)
         local cmd, rest = text:match("^%s*!%s*([zxqs])%s*(.*)$")
         if cmd then
             cmd = strlower(cmd)
+            if qtRunnerDB then
+                qtRunnerDB.lastBangPick = cmd
+            end
             if cmd == "z" then
                 qtRunnerSearchMode:ClearLootZonePreview()
                 qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
@@ -506,6 +512,96 @@ local function BuildWarpEntries(query, entryMode)
             label = zoneName,
             icon = (info and info.icon) or "Interface\\Icons\\Spell_Arcane_TeleportStormwind",
         })
+    end
+    return out
+end
+
+local bangPickTemplates = {
+    z = {
+        bangLetter = "z",
+        bangToken = "!z",
+        bangTitle = "Zone items",
+        bangDesc = "Drops and sources in the current zone (combine with /b, /u, etc.).",
+        label = "!z   Zone items",
+        icon = "Interface\\Icons\\INV_Box_02",
+    },
+    x = {
+        bangLetter = "x",
+        bangToken = "!x",
+        bangTitle = "Zone quests",
+        bangDesc = "Quests for this zone; use /a, /acc, /c, /al, /at in the search line.",
+        label = "!x   Zone quests",
+        icon = "Interface\\Icons\\INV_Misc_Note_01",
+    },
+    q = {
+        bangLetter = "q",
+        bangToken = "!q",
+        bangTitle = "Warp",
+        bangDesc = "Teleport list for learned zones — type to filter, pick a row, then submit.",
+        label = "!q   Warp",
+        icon = "Interface\\Icons\\Spell_Arcane_TeleportStormwind",
+    },
+    s = {
+        bangLetter = "s",
+        bangToken = "!s",
+        bangTitle = "Zone items",
+        bangDesc = "Same mode as !z — alternate token (reserved for later).",
+        label = "!s   Zone items",
+        icon = "Interface\\Icons\\INV_Box_01",
+    },
+    w = {
+        bangLetter = "w",
+        bangToken = "!w",
+        bangTitle = "Clear & close",
+        bangDesc = "Clears all tracked objectives and closes qtRunner.",
+        label = "!w   Clear & close",
+        icon = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+    },
+}
+
+local BANG_PICKER_ORDER = { "z", "x", "q", "w" }
+
+local function BangPickerHotOrder(lastLetter)
+    if not lastLetter then
+        return BANG_PICKER_ORDER
+    end
+    local at = nil
+    for i = 1, #BANG_PICKER_ORDER do
+        if BANG_PICKER_ORDER[i] == lastLetter then
+            at = i
+            break
+        end
+    end
+    if not at then
+        return BANG_PICKER_ORDER
+    end
+    local out = { lastLetter }
+    for i = 1, #BANG_PICKER_ORDER do
+        if BANG_PICKER_ORDER[i] ~= lastLetter then
+            tinsert(out, BANG_PICKER_ORDER[i])
+        end
+    end
+    return out
+end
+
+local function BuildBangPickerEntries()
+    local last = qtRunnerDB and qtRunnerDB.lastBangPick
+    local letters = BangPickerHotOrder(last)
+    local out = {}
+    for i = 1, #letters do
+        local L = letters[i]
+        local tmpl = bangPickTemplates[L]
+        if tmpl then
+            tinsert(out, {
+                mode = "bang_pick",
+                bangLetter = tmpl.bangLetter,
+                bangToken = tmpl.bangToken,
+                bangTitle = tmpl.bangTitle,
+                bangDesc = tmpl.bangDesc,
+                label = tmpl.label,
+                icon = tmpl.icon,
+            })
+        end
     end
     return out
 end
