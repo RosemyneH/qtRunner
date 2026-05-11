@@ -327,6 +327,33 @@ function qtRunner:HandleSearchTextChanged(text)
     return false
 end
 
+local function IsBangPickerQuery(text)
+    return Trim(text or "") == "!"
+end
+
+local function LayoutRunnerTrackAndList()
+    if not runnerFrame or not runnerFrame.searchBg or not runnerFrame.dropBg then
+        return
+    end
+    local gap = 4
+    local showActions = qtRunnerSearchMode and trackActionsFrame
+        and (not qtRunnerSearchMode:IsWarpMode() and qtRunnerSearchMode.mode ~= "zone_pick")
+    if showActions then
+        trackActionsFrame:Show()
+        trackActionsFrame:ClearAllPoints()
+        trackActionsFrame:SetPoint("TOPLEFT", runnerFrame.searchBg, "BOTTOMLEFT", 0, -gap)
+        runnerFrame.dropBg:ClearAllPoints()
+        runnerFrame.dropBg:SetPoint("TOP", trackActionsFrame, "BOTTOM", 0, -gap)
+    else
+        if trackActionsFrame then
+            trackActionsFrame:Hide()
+        end
+        runnerFrame.dropBg:ClearAllPoints()
+        runnerFrame.dropBg:SetPoint("TOP", runnerFrame.searchBg, "BOTTOM", 0, -gap)
+    end
+    runnerFrame:SetHeight(ICON_SIZE + 112 + LIST_HEIGHT + 8)
+end
+
 local learnedZonesCache = nil
 local spellChangedFrame = nil
 
@@ -650,18 +677,7 @@ function qtRunner:RefreshRunnerList()
         off = math_min(math_max(off, selectedIndex - NUM_VISIBLE), maxOff)
     end
     listScrollOffset = off
-    if trackToggleButton and trackClearButton and qtRunnerSearchMode then
-        local showActions = not qtRunnerSearchMode:IsWarpMode() and qtRunnerSearchMode.mode ~= "zone_pick"
-        if showActions then
-            trackActionsFrame:Show()
-            runnerFrame.dropBg:ClearAllPoints()
-            runnerFrame.dropBg:SetPoint("TOP", trackActionsFrame, "BOTTOM", 0, -4)
-        else
-            trackActionsFrame:Hide()
-            runnerFrame.dropBg:ClearAllPoints()
-            runnerFrame.dropBg:SetPoint("TOP", runnerFrame.searchBg, "BOTTOM", 0, -4)
-        end
-    end
+    LayoutRunnerTrackAndList()
     UpdateScrollList()
 end
 
@@ -970,7 +986,7 @@ local function CreateRunnerFrame()
     runnerFrame = CreateFrame("Frame", "qtRunnerPanel", UIParent)
     runnerFrame:SetFrameStrata("DIALOG")
     runnerFrame:SetFrameLevel(100)
-    runnerFrame:SetSize(FRAME_W, ICON_SIZE + 112 + LIST_HEIGHT + 8)
+    runnerFrame:SetWidth(FRAME_W)
     runnerFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 36)
     runnerFrame:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -1238,6 +1254,8 @@ local function CreateRunnerFrame()
     runnerFrame:SetScript("OnHide", function(self)
         self:SetScript("OnUpdate", nil)
     end)
+
+    LayoutRunnerTrackAndList()
 end
 
 function qtRunner:_ApplyRunnerPanelColors(colors)
