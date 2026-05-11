@@ -1026,11 +1026,11 @@ function qtRunner:OpenLootDbForEntry(entry)
     local frame = _G.LootDBFrame
     if frame and frame.ClearAllPoints and frame.SetPoint then
         frame:ClearAllPoints()
-        frame:SetPoint("LEFT", runnerFrame, "RIGHT", 12, 0)
-        local right = frame.GetRight and frame:GetRight() or nil
-        if right and GetScreenWidth and right > (GetScreenWidth() - 12) then
+        frame:SetPoint("RIGHT", runnerFrame, "LEFT", -12, 0)
+        local left = frame.GetLeft and frame:GetLeft() or nil
+        if left and left < 12 then
             frame:ClearAllPoints()
-            frame:SetPoint("RIGHT", runnerFrame, "LEFT", -12, 0)
+            frame:SetPoint("LEFT", runnerFrame, "RIGHT", 12, 0)
         end
     end
     return true
