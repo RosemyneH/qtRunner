@@ -2570,61 +2570,65 @@ function qtRunnerSearchData:GetZoneQuestEntries(zoneId)
                 local qflags = Custom_GetQuestData and Custom_GetQuestData(questId) or nil
                 local valid = (qflags ~= nil) and band(qflags, QUEST_INVALID_FLAG) == 0
                 if valid then
-                    local questName = (Custom_GetQuestName and Custom_GetQuestName(questId)) or ("Quest #" .. questId)
-                    local onQuest = (Custom_IsOnQuest and Custom_IsOnQuest(questId)) and true or false
-                    local completed = (Custom_GetQuestCompleted and Custom_GetQuestCompleted(questId)) and true or false
-                    local canAccept = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(questId)) or 0) > 0
-                    seen[questId] = true
-                    local starterQ = self:_QuestChainTravelStarterQuestId(questId, objZone)
-                    local availableChain = onQuest or canAccept
-                    if starterQ > 0 and starterQ ~= questId then
-                        local onEntry = (Custom_IsOnQuest and Custom_IsOnQuest(starterQ)) and true or false
-                        local canEntry = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(starterQ)) or 0) > 0
-                        availableChain = onEntry or canEntry or onQuest or canAccept
+                    if Custom_IsOnQuest and Custom_IsOnQuest(questId) then
+                        seen[questId] = true
+                    else
+                        local questName = (Custom_GetQuestName and Custom_GetQuestName(questId)) or ("Quest #" .. questId)
+                        local onQuest = false
+                        local completed = (Custom_GetQuestCompleted and Custom_GetQuestCompleted(questId)) and true or false
+                        local canAccept = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(questId)) or 0) > 0
+                        seen[questId] = true
+                        local starterQ = self:_QuestChainTravelStarterQuestId(questId, objZone)
+                        local availableChain = onQuest or canAccept
+                        if starterQ > 0 and starterQ ~= questId then
+                            local onEntry = (Custom_IsOnQuest and Custom_IsOnQuest(starterQ)) and true or false
+                            local canEntry = ((Custom_GetQuestCanAccept and Custom_GetQuestCanAccept(starterQ)) or 0) > 0
+                            availableChain = onEntry or canEntry or onQuest or canAccept
+                        end
+                        local qx, qy, qz = self:_ResolveQuestStarterCoords(starterQ, objZone)
+                        local starterNpcName = self:_ResolveQuestStarterNpcName(starterQ)
+                        local sid = (qz and qz > 0) and qz or objZone
+                        local distanceYards = self:_DistanceYardsQuestieWorld(sid, qx, qy)
+                        local distance = distanceYards or 999999999
+                        local spineRoot = self:_QuestChainSpineRoot(questId)
+                        if not spineRoot or spineRoot <= 0 then
+                            spineRoot = questId
+                        end
+                        local prereqRoots = self:_QuestChainPrereqRootsList(questId)
+                        local trackQ = (starterQ and starterQ > 0) and starterQ or questId
+                        tinsert(rows, {
+                            typeId = OBJTYPE_QUEST,
+                            objId = questId,
+                            trackQuestId = trackQ,
+                            name = questName,
+                            onQuest = onQuest,
+                            completed = completed,
+                            canAccept = canAccept,
+                            availableChain = availableChain,
+                            tracked = self:IsTracked(tracked, OBJTYPE_QUEST, trackQ),
+                            x = qx,
+                            y = qy,
+                            zoneId = (qz and qz > 0) and qz or objZone,
+                            distance = distance,
+                            distanceMapPercent = nil,
+                            distanceYards = distanceYards,
+                            distanceText = (distanceYards and distanceYards > 0) and tostring(distanceYards) or "--",
+                            source = "tracker",
+                            charAttunable = false,
+                            accountAttunable = false,
+                            starterNpcName = starterNpcName,
+                            chainEntryQuestId = starterQ,
+                            chainSpineRootQuestId = spineRoot,
+                            chainPrereqRootQuestIds = prereqRoots,
+                            chainTooltipExtra = self:GetQuestChainTooltipExtra(spineRoot, questId, prereqRoots),
+                            rewardItemIds = nil,
+                            rewardItemId = nil,
+                            rewardIcon = nil,
+                            wrongFaction = false,
+                            factionBadge = "",
+                            attuneRank = 3,
+                        })
                     end
-                    local qx, qy, qz = self:_ResolveQuestStarterCoords(starterQ, objZone)
-                    local starterNpcName = self:_ResolveQuestStarterNpcName(starterQ)
-                    local sid = (qz and qz > 0) and qz or objZone
-                    local distanceYards = self:_DistanceYardsQuestieWorld(sid, qx, qy)
-                    local distance = distanceYards or 999999999
-                    local spineRoot = self:_QuestChainSpineRoot(questId)
-                    if not spineRoot or spineRoot <= 0 then
-                        spineRoot = questId
-                    end
-                    local prereqRoots = self:_QuestChainPrereqRootsList(questId)
-                    local trackQ = (starterQ and starterQ > 0) and starterQ or questId
-                    tinsert(rows, {
-                        typeId = OBJTYPE_QUEST,
-                        objId = questId,
-                        trackQuestId = trackQ,
-                        name = questName,
-                        onQuest = onQuest,
-                        completed = completed,
-                        canAccept = canAccept,
-                        availableChain = availableChain,
-                        tracked = self:IsTracked(tracked, OBJTYPE_QUEST, trackQ),
-                        x = qx,
-                        y = qy,
-                        zoneId = (qz and qz > 0) and qz or objZone,
-                        distance = distance,
-                        distanceMapPercent = nil,
-                        distanceYards = distanceYards,
-                        distanceText = (distanceYards and distanceYards > 0) and tostring(distanceYards) or "--",
-                        source = "tracker",
-                        charAttunable = false,
-                        accountAttunable = false,
-                        starterNpcName = starterNpcName,
-                        chainEntryQuestId = starterQ,
-                        chainSpineRootQuestId = spineRoot,
-                        chainPrereqRootQuestIds = prereqRoots,
-                        chainTooltipExtra = self:GetQuestChainTooltipExtra(spineRoot, questId, prereqRoots),
-                        rewardItemIds = nil,
-                        rewardItemId = nil,
-                        rewardIcon = nil,
-                        wrongFaction = false,
-                        factionBadge = "",
-                        attuneRank = 3,
-                    })
                 end
             end
         end
