@@ -153,11 +153,42 @@ local function HideCompareTooltips()
     end
 end
 
+local function AppendBangSubmitHintToTooltip()
+    local parts = {}
+    if qtRunner:IsSubmitKeyEnabled("GRAVE") then
+        tinsert(parts, "`")
+    end
+    if qtRunner:IsSubmitKeyEnabled("ENTER") then
+        tinsert(parts, "Enter")
+    end
+    GameTooltip:AddLine(" ", 1, 1, 1)
+    if #parts > 0 then
+        GameTooltip:AddLine("|cFF888888" .. table.concat(parts, "  ·  ") .. " — activate highlighted row|r", 0.65, 0.7, 0.76, true)
+    else
+        GameTooltip:AddLine("|cFF888888Enable ` or Enter in qtRunner settings to submit.|r", 0.65, 0.7, 0.76, true)
+    end
+end
+
+local function ShowBangPickerEntryTooltip(owner, token, title, body)
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    if GameTooltip.ClearLines then
+        GameTooltip:ClearLines()
+    end
+    GameTooltip:SetText("|cFFFFD200" .. token .. "|r  " .. title, 1, 1, 1, true)
+    GameTooltip:AddLine(body, 0.88, 0.9, 0.95, true)
+    AppendBangSubmitHintToTooltip()
+    GameTooltip:Show()
+end
+
 local function ShowRunnerEntryTooltip(owner, entry)
     if not owner or not entry then
         return
     end
     HideQTRunnerRewardTooltip()
+    if entry.mode == "bang_pick" then
+        ShowBangPickerEntryTooltip(owner, entry.bangToken, entry.bangTitle, entry.bangDesc)
+        return
+    end
     local zoneHyp = ZoneItemEntryHyperlink(entry)
     if entry.mode == "zone_items" then
         if zoneHyp then
