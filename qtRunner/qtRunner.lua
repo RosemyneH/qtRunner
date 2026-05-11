@@ -47,6 +47,7 @@ local trackClearButton = nil
 local trackActionsFrame = nil
 local zoneHelpButton = nil
 local qtRunnerRewardsTooltip = nil
+local qtRunnerModeHelpTooltip = nil
 
 local FRAME_W = 208
 local ICON_SIZE = 56
@@ -1162,9 +1163,14 @@ local function CreateRunnerFrame()
     qtRunnerRewardsTooltip:SetFrameStrata("TOOLTIP")
     qtRunnerRewardsTooltip:Hide()
 
+    qtRunnerModeHelpTooltip = CreateFrame("GameTooltip", "qtRunnerModeHelpTooltip", UIParent, "GameTooltipTemplate")
+    qtRunnerModeHelpTooltip:SetFrameStrata("TOOLTIP")
+    qtRunnerModeHelpTooltip:Hide()
+
     zoneHelpButton = CreateFrame("Button", nil, runnerFrame)
     zoneHelpButton:SetSize(18, 18)
-    zoneHelpButton:SetPoint("TOPLEFT", runnerFrame, "TOPRIGHT", 4, -2)
+    zoneHelpButton:SetPoint("TOPRIGHT", runnerFrame, "TOPRIGHT", -8, -8)
+    zoneHelpButton:SetFrameLevel((runnerFrame:GetFrameLevel() or 0) + 50)
     zoneHelpButton:EnableMouse(true)
     zoneHelpButton:Hide()
     zoneHelpButton.text = zoneHelpButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
