@@ -702,6 +702,7 @@ function qtRunner:RefreshRunnerList()
 
     local q = searchBox and searchBox:GetText() or ""
     q = Trim(q)
+    local pickBang = IsBangPickerQuery(q)
     local zonePick = qtRunnerSearchMode and qtRunnerSearchMode.mode == "zone_pick"
     local inWarp = not qtRunnerSearchMode or qtRunnerSearchMode:IsWarpMode()
 
@@ -711,6 +712,9 @@ function qtRunner:RefreshRunnerList()
         currentEntries = BuildWarpEntries(q, "warp")
     else
         currentEntries = qtRunnerSearchMode:BuildEntries(q)
+    end
+    if pickBang then
+        currentEntries = BuildBangPickerEntries()
     end
     filteredZones = currentEntries
     local qCompact = strgsub(q, "%s+", "")
@@ -748,6 +752,17 @@ function qtRunner:RefreshRunnerList()
 
     if nRows == 0 then
         selectedIndex = 1
+    elseif pickBang then
+        selectedIndex = 1
+        if prevSel and prevSel.mode == "bang_pick" and prevSel.bangLetter then
+            for i = 1, nRows do
+                local e = currentEntries[i]
+                if e.mode == "bang_pick" and e.bangLetter == prevSel.bangLetter then
+                    selectedIndex = i
+                    break
+                end
+            end
+        end
     else
         local warpStick = (inWarp or zonePick) and qCompact == "" and stickZone and (stickMode == "warp" or stickMode == "zone_pick")
         if warpStick then
