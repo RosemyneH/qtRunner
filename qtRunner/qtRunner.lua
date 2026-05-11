@@ -879,6 +879,16 @@ function qtRunner:ActivateSelectedEntry(submitOpts)
     if not entry then
         return
     end
+    if entry.mode == "bang_pick" then
+        if qtRunnerDB then
+            qtRunnerDB.lastBangPick = entry.bangLetter
+        end
+        if searchBox then
+            local letter = entry.bangLetter
+            searchBox:SetText(letter == "w" and "!w" or ("!" .. letter))
+        end
+        return
+    end
     if entry.mode == "zone_pick" then
         local zid = qtRunnerSearchData:GetCurrentZoneId()
         qtRunnerSearchMode.previewLootZoneId = zid
@@ -931,6 +941,9 @@ function qtRunner:ToggleTrackSelected()
     end
     local entry = GetSelectedEntry()
     if not entry then
+        return
+    end
+    if entry.mode == "bang_pick" then
         return
     end
     qtRunnerSearchMode:ToggleTrackForEntry(entry)
@@ -1058,6 +1071,7 @@ local function QtRunnerShowModeHelpTooltip(owner)
         GameTooltip:AddLine(" ", 1, 1, 1)
         GameTooltip:AddDoubleLine("|cFFFFFFFF!w|r", "Clear all tracked & close", 0.9, 0.92, 1, 0.65, 0.7, 0.78)
         GameTooltip:AddLine(" ", 1, 1, 1)
+        GameTooltip:AddLine("|cFF666666Type |cFFFFFFFF!|r alone — mode shortcuts appear in the list (hover a row for details).|r", 0.55, 0.58, 0.62, true)
         GameTooltip:AddLine("|cFF666666Type to filter zone names.|r", 0.55, 0.58, 0.62)
         GameTooltip:Show()
         return
