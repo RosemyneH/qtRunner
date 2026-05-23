@@ -22,6 +22,8 @@ qtRunnerSearchMode = {
 
     cachedQuests = nil,
 
+    cachedZoneAttuneStats = nil,
+
     cachedNpcs = nil,
 
     npcCacheZoneId = nil,
@@ -886,6 +888,8 @@ function qtRunnerSearchMode:MarkDirty()
 
     self.cachedQuests = nil
 
+    self.cachedZoneAttuneStats = nil
+
     self.cachedNpcs = nil
 
     self.npcCacheZoneId = nil
@@ -994,9 +998,11 @@ function qtRunnerSearchMode:BuildEntries(query)
 
     if wantItems and not self.cachedItems then
 
-        local items = select(1, qtRunnerSearchData:BuildZoneEntries(zoneId, false, true, false))
+        local items, _, _, zoneAttuneStats = qtRunnerSearchData:BuildZoneEntries(zoneId, false, true, false)
 
         self.cachedItems = items or {}
+
+        self.cachedZoneAttuneStats = zoneAttuneStats
 
         self.cachedQuests = nil
 
@@ -1007,6 +1013,8 @@ function qtRunnerSearchMode:BuildEntries(query)
         self.cachedQuests = quests or {}
 
         self.cachedItems = nil
+
+        self.cachedZoneAttuneStats = nil
 
     end
 
@@ -1398,6 +1406,20 @@ function qtRunnerSearchMode:BuildEntries(query)
 
 
     return entries
+
+end
+
+
+
+function qtRunnerSearchMode:GetZoneAttuneStats()
+
+    if self.mode ~= "zone_items" then
+
+        return nil
+
+    end
+
+    return self.cachedZoneAttuneStats
 
 end
 
