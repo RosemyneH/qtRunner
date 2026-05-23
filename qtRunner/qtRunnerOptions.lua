@@ -347,22 +347,43 @@ CloseAddAliasDialog = function()
     end
 end
 
+local function RefreshZoneSettings()
+    if not settingsUI.zone then return end
+    local zoneBar = qtRunner:IsZoneAttuneBarEnabled() and "on" or "off"
+    local affixes = qtRunner:IsZoneAttuneAffixesEnabled() and "on" or "off"
+    local remaining = qtRunner:IsZoneAttuneRemainingEnabled() and "on" or "off"
+    settingsUI.zone.summary:SetText("Zone bar: " .. zoneBar .. "    Affix stats: " .. affixes .. "    Left lines: " .. remaining)
+end
+
+local function ApplyZoneAttuneSettingsChanged()
+    if qtRunnerSearchMode and qtRunnerSearchMode.MarkDirty then
+        qtRunnerSearchMode:MarkDirty()
+    end
+    if qtRunner.RefreshRunnerList then
+        qtRunner:RefreshRunnerList()
+    end
+    UpdateSummary()
+    RefreshZoneSettings()
+end
+
 local function SelectTab(name)
     settingsUI.activeTab = name
     ToggleDefaultZoneDropdown(false)
     HideZoneAutocomplete()
     CloseAddAliasDialog()
+    settingsUI.general.section:Hide()
+    settingsUI.aliases.section:Hide()
+    settingsUI.tutorial.section:Hide()
+    if settingsUI.zone then
+        settingsUI.zone.section:Hide()
+    end
     if name == "general" then
         settingsUI.general.section:Show()
-        settingsUI.aliases.section:Hide()
-        settingsUI.tutorial.section:Hide()
+    elseif name == "zone" and settingsUI.zone then
+        settingsUI.zone.section:Show()
     elseif name == "aliases" then
-        settingsUI.general.section:Hide()
         settingsUI.aliases.section:Show()
-        settingsUI.tutorial.section:Hide()
     else
-        settingsUI.general.section:Hide()
-        settingsUI.aliases.section:Hide()
         settingsUI.tutorial.section:Show()
     end
     qtRunner:RefreshSettingsTheme()
@@ -525,7 +546,7 @@ local function BuildSettingsFrame()
     settingsUI.title:SetText("qtRunner Control Center")
     settingsUI.subtitle = CreateText(frame, "GameFontNormalSmall", "TOPLEFT", settingsUI.title, "BOTTOMLEFT", 0, -8, 560, "LEFT")
     settingsUI.subtitle.mode = "muted"
-    settingsUI.subtitle:SetText("A two-tab settings page for defaults, aliases, submit keys, and theme switching.")
+    settingsUI.subtitle:SetText("A focused settings page for defaults, !z options, aliases, and quick reference.")
 
     settingsUI.close = CreateButton(frame, 28, 24, "X", "TOPRIGHT", frame, "TOPRIGHT", -16, -14, function()
         ToggleDefaultZoneDropdown(false)
@@ -536,7 +557,10 @@ local function BuildSettingsFrame()
     settingsUI.tabs.general = CreateButton(frame, 150, 28, "General", "TOPLEFT", frame, "TOPLEFT", 20, -74, function()
         SelectTab("general")
     end)
-    settingsUI.tabs.aliases = CreateButton(frame, 150, 28, "Aliases", "LEFT", settingsUI.tabs.general, "RIGHT", 12, 0, function()
+    settingsUI.tabs.zone = CreateButton(frame, 150, 28, "!z", "LEFT", settingsUI.tabs.general, "RIGHT", 12, 0, function()
+        SelectTab("zone")
+    end)
+    settingsUI.tabs.aliases = CreateButton(frame, 150, 28, "Aliases", "LEFT", settingsUI.tabs.zone, "RIGHT", 12, 0, function()
         SelectTab("aliases")
     end)
     settingsUI.tabs.tutorial = CreateButton(frame, 150, 28, "Tutorial", "LEFT", settingsUI.tabs.aliases, "RIGHT", 12, 0, function()
@@ -706,6 +730,62 @@ local function BuildSettingsFrame()
         qtRunner:ResetDefaults()
     end)
 
+    settingsUI.zone = {}
+    settingsUI.zone.section = CreateFrame("Frame", nil, frame)
+    settingsUI.zone.section:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -116)
+    settingsUI.zone.section:SetSize(720, 484)
+    settingsUI.zone.section:Hide()
+
+    local zoneHero = CreatePanel(settingsUI.zone.section, 720, 100, "TOPLEFT", settingsUI.zone.section, "TOPLEFT", 0, 0)
+    settingsUI.zone.title = CreateText(zoneHero, "GameFontNormalLarge", "TOPLEFT", zoneHero, "TOPLEFT", 16, -14)
+    settingsUI.zone.title:SetText("!z Zone Items")
+    settingsUI.zone.copy = CreateText(zoneHero, "GameFontNormalSmall", "TOPLEFT", settingsUI.zone.title, "BOTTOMLEFT", 0, -10, 640, "LEFT")
+    settingsUI.zone.copy.mode = "muted"
+    settingsUI.zone.copy:SetText("Tune the optional current-zone progress bar and the extra affix progress scan.")
+    settingsUI.zone.summary = CreateText(zoneHero, "GameFontNormal", "BOTTOMLEFT", zoneHero, "BOTTOMLEFT", 16, 14, 660, "LEFT")
+    settingsUI.zone.summary.mode = "accent"
+
+    local zoneBehavior = CreatePanel(settingsUI.zone.section, 720, 178, "TOPLEFT", zoneHero, "BOTTOMLEFT", 0, -16)
+    settingsUI.zone.behaviorTitle = CreateText(zoneBehavior, "GameFontNormalLarge", "TOPLEFT", zoneBehavior, "TOPLEFT", 16, -14)
+    settingsUI.zone.behaviorTitle:SetText("Zone Progress")
+    settingsUI.zone.behaviorCopy = CreateText(zoneBehavior, "GameFontNormalSmall", "TOPLEFT", settingsUI.zone.behaviorTitle, "BOTTOMLEFT", 0, -10, 640, "LEFT")
+    settingsUI.zone.behaviorCopy.mode = "muted"
+    settingsUI.zone.behaviorCopy:SetText("The bar is off by default. Affix stats are also off by default because they require checking every zone item's affix variants.")
+
+    settingsUI.zone.barCheck = CreateFrame("CheckButton", nil, zoneBehavior, "UICheckButtonTemplate")
+    settingsUI.zone.barCheck:SetPoint("TOPLEFT", settingsUI.zone.behaviorCopy, "BOTTOMLEFT", -4, -14)
+    settingsUI.zone.barCheck.label = CreateText(zoneBehavior, "GameFontNormal", "LEFT", settingsUI.zone.barCheck, "RIGHT", 4, 1)
+    settingsUI.zone.barCheck.label:SetText("Show !z zone attune bar")
+    settingsUI.zone.barCheck:SetScript("OnClick", function(self)
+        qtRunnerDB.showZoneAttuneBar = self:GetChecked() and true or false
+        ApplyZoneAttuneSettingsChanged()
+    end)
+
+    settingsUI.zone.affixCheck = CreateFrame("CheckButton", nil, zoneBehavior, "UICheckButtonTemplate")
+    settingsUI.zone.affixCheck:SetPoint("TOPLEFT", settingsUI.zone.barCheck, "BOTTOMLEFT", 0, -10)
+    settingsUI.zone.affixCheck.label = CreateText(zoneBehavior, "GameFontNormal", "LEFT", settingsUI.zone.affixCheck, "RIGHT", 4, 1)
+    settingsUI.zone.affixCheck.label:SetText("Include affixes in zone stats")
+    settingsUI.zone.affixCheck:SetScript("OnClick", function(self)
+        qtRunnerDB.showZoneAttuneAffixes = self:GetChecked() and true or false
+        ApplyZoneAttuneSettingsChanged()
+    end)
+
+    settingsUI.zone.remainingCheck = CreateFrame("CheckButton", nil, zoneBehavior, "UICheckButtonTemplate")
+    settingsUI.zone.remainingCheck:SetPoint("TOPLEFT", settingsUI.zone.affixCheck, "BOTTOMLEFT", 0, -10)
+    settingsUI.zone.remainingCheck.label = CreateText(zoneBehavior, "GameFontNormal", "LEFT", settingsUI.zone.remainingCheck, "RIGHT", 4, 1)
+    settingsUI.zone.remainingCheck.label:SetText("Show items left in tooltip")
+    settingsUI.zone.remainingCheck:SetScript("OnClick", function(self)
+        qtRunnerDB.showZoneAttuneRemaining = self:GetChecked() and true or false
+        ApplyZoneAttuneSettingsChanged()
+    end)
+
+    local zoneNote = CreatePanel(settingsUI.zone.section, 720, 84, "TOPLEFT", zoneBehavior, "BOTTOMLEFT", 0, -16)
+    settingsUI.zone.noteTitle = CreateText(zoneNote, "GameFontNormal", "TOPLEFT", zoneNote, "TOPLEFT", 16, -14)
+    settingsUI.zone.noteTitle:SetText("Performance")
+    settingsUI.zone.noteCopy = CreateText(zoneNote, "GameFontNormalSmall", "TOPLEFT", settingsUI.zone.noteTitle, "BOTTOMLEFT", 0, -8, 660, "LEFT")
+    settingsUI.zone.noteCopy.mode = "muted"
+    settingsUI.zone.noteCopy:SetText("Leave affixes off for the lightest !z build. Turn them on only when you want the tooltip to include affix completion totals.")
+
     settingsUI.aliases = {}
     settingsUI.aliases.section = CreateFrame("Frame", nil, frame)
     settingsUI.aliases.section:SetPoint("TOPLEFT", frame, "TOPLEFT", 20, -116)
@@ -800,6 +880,7 @@ function qtRunner:RefreshSettingsTheme()
     end
 
     settingsUI.tabs.general.text:SetTextColor(settingsUI.activeTab == "general" and colors.accent.r or colors.text.r, settingsUI.activeTab == "general" and colors.accent.g or colors.text.g, settingsUI.activeTab == "general" and colors.accent.b or colors.text.b)
+    settingsUI.tabs.zone.text:SetTextColor(settingsUI.activeTab == "zone" and colors.accent.r or colors.text.r, settingsUI.activeTab == "zone" and colors.accent.g or colors.text.g, settingsUI.activeTab == "zone" and colors.accent.b or colors.text.b)
     settingsUI.tabs.aliases.text:SetTextColor(settingsUI.activeTab == "aliases" and colors.accent.r or colors.text.r, settingsUI.activeTab == "aliases" and colors.accent.g or colors.text.g, settingsUI.activeTab == "aliases" and colors.accent.b or colors.text.b)
     settingsUI.tabs.tutorial.text:SetTextColor(settingsUI.activeTab == "tutorial" and colors.accent.r or colors.text.r, settingsUI.activeTab == "tutorial" and colors.accent.g or colors.text.g, settingsUI.activeTab == "tutorial" and colors.accent.b or colors.text.b)
     settingsUI.general.defaultZoneButton.text:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
@@ -861,8 +942,12 @@ function qtRunner:RefreshSettings()
     settingsUI.general.graveCheck:SetChecked(qtRunnerDB.submitWithBacktick)
     settingsUI.general.questieCheck:SetChecked(qtRunner:IsQuestieEnabled())
     settingsUI.general.tomtomCheck:SetChecked(qtRunner:IsTomTomEnabled())
+    settingsUI.zone.barCheck:SetChecked(qtRunner:IsZoneAttuneBarEnabled())
+    settingsUI.zone.affixCheck:SetChecked(qtRunner:IsZoneAttuneAffixesEnabled())
+    settingsUI.zone.remainingCheck:SetChecked(qtRunner:IsZoneAttuneRemainingEnabled())
     ToggleDefaultZoneDropdown(false)
     UpdateSummary()
+    RefreshZoneSettings()
     RefreshAliasRows()
     self:RefreshSettingsTheme()
 end
