@@ -1,11 +1,14 @@
 ## Interface: 30300
-## Title: qtRunner
+## Title: |cff00bfffqt|r|cffff7d0aRunner|r
 ## Notes: Minimal zone warp runner (search, preview, teleport)
 ## Author: Qt
-## Version: banana
+## Version: bangarang
+## OptionalDeps: Questie-335, TomTom
 ## SavedVariables: qtRunnerDB
 
 qtRunnerData.lua
+qtRunnerSearchData.lua
+qtRunnerSearchMode.lua
 qtRunner.lua
 qtRunnerConfig.lua
 qtRunnerOptions.lua

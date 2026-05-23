@@ -1,6 +1,5 @@
 -- qtRunner data — spell database for zone warps
 local GetSpellInfo = GetSpellInfo
-local band = bit.band
 local pairs = pairs
 local strfind = string.find
 local strgsub = string.gsub
@@ -179,6 +178,7 @@ qtRunnerData.aliases = {}
 qtRunnerData._spellCompact = {}
 qtRunnerData._aliasCompact = {}
 qtRunnerData._aliasesByCanon = {}
+qtRunnerData.lootZoneIds = {}
 
 local function BuildCaches()
     local spellCompactToCanon = {}
@@ -197,14 +197,13 @@ local function BuildCaches()
                 row = {}
                 aliasesByCanon[canon] = row
             end
-            local alow = strlower(alias)
-            tinsert(row, { alias = alias, alow = alow, acomp = strgsub(alow, "%s+", "") })
+            tinsert(row, alias)
         end
     end
 
     for _, row in pairs(aliasesByCanon) do
         tsort(row, function(a, b)
-            return a.alow < b.alow
+            return strlower(a) < strlower(b)
         end)
     end
 
@@ -262,8 +261,6 @@ function qtRunnerData:GetAliasPairs()
     return rows
 end
 
-BuildCaches()
-
 function qtRunnerData:ResolveSpellCanonical(input)
     if not input or input == "" then return nil end
     local trimmed = strgsub(input, "^%s*(.-)%s*$", "%1")
@@ -299,18 +296,31 @@ function qtRunnerData:ResolveZoneCanonical(input)
     if ac then return ac end
     local n = #compact
     if n >= 2 and n <= 12 then
-        local match = nil
+        local hits = {}
         for alias, canon in pairs(self.aliases) do
             if self.spells[canon] then
                 local alow = strlower(alias)
                 local clow = strlower(canon)
                 if (#alow >= n and strsub(alow, 1, n) == compact) or (#clow >= n and strsub(clow, 1, n) == compact) then
-                    if match and match ~= canon then return nil end
-                    match = canon
+                    hits[canon] = true
                 end
             end
         end
-        if match then return match end
+        for canon in pairs(self.spells) do
+            local clow = strlower(canon)
+            if #clow >= n and strsub(clow, 1, n) == compact then
+                hits[canon] = true
+            end
+        end
+        local sole = nil
+        local nh = 0
+        for canon in pairs(hits) do
+            nh = nh + 1
+            sole = canon
+        end
+        if nh == 1 then
+            return sole
+        end
     end
     return nil
 end
@@ -328,13 +338,47 @@ function qtRunnerData:ZoneMatchesQuery(zoneName, query)
     local rows = self._aliasesByCanon[zoneName]
     if rows then
         for i = 1, #rows do
-            local r = rows[i]
-            local alow, acomp = r.alow, r.acomp
+            local alias = rows[i]
+            local alow = strlower(alias)
+            local acomp = strgsub(alow, "%s+", "")
             if strfind(acomp, compact, 1, true) or strfind(alow, lt, 1, true) then return true end
             if n >= 2 and n <= 12 and #acomp >= n and strsub(acomp, 1, n) == compact then return true end
         end
     end
     return false
+end
+
+function qtRunnerData:ZoneSearchSortKey(zoneName, query)
+    local q = query and strgsub(query, "^%s*(.-)%s*$", "%1") or ""
+    local zlow = strlower(zoneName)
+    if q == "" then
+        return { 0, 0, 0, zlow }
+    end
+    local lt = strlower(q)
+    local compact = strCompactLower(q)
+    local zcomp = strgsub(zlow, "%s+", "")
+    if zlow == lt or zcomp == compact then
+        return { 0, 0, 0, zlow }
+    end
+    if compact ~= "" and #zcomp >= #compact and strsub(zcomp, 1, #compact) == compact then
+        return { 1, 0, 0, zlow }
+    end
+    for w in string.gmatch(zlow, "%S+") do
+        if #w >= #lt and strsub(w, 1, #lt) == lt then
+            return { 2, 0, 0, zlow }
+        end
+    end
+    if compact ~= "" then
+        local pos = strfind(zcomp, compact, 1, true)
+        if pos then
+            return { 10, pos, #zcomp, zlow }
+        end
+    end
+    local pos = strfind(zlow, lt, 1, true)
+    if pos then
+        return { 20, pos, #zcomp, zlow }
+    end
+    return { 9999, 9999, 9999, zlow }
 end
 
 function qtRunnerData:GetZoneSpellInfo(zoneName)
@@ -351,7 +395,7 @@ function qtRunnerData:GetZoneSpellInfo(zoneName)
         return nil
     end
 
-    local spellId = 80567 + band(warpIndex, 0x7F)
+    local spellId = 80567 + warpIndex
     local name, rank, icon = GetSpellInfo(spellId)
     local info
 

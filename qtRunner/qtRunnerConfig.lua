@@ -1,149 +1,105 @@
-local ipairs = ipairs
-
-qtRunner.Themes = {
+-- Packed rows are constants; SavedVariables only store qtRunnerDB.theme (name string).
+local themesPacked = {
     dark = {
-        text = { r = 0.92, g = 0.94, b = 0.98 },
-        textMuted = { r = 0.55, g = 0.62, b = 0.72 },
-        accent = { r = 0.55, g = 0.78, b = 1.0 },
-        sel = { r = 0.22, g = 0.42, b = 0.62, a = 0.45 },
-        hi = { r = 0.4, g = 0.65, b = 0.95, a = 0.22 },
-        panel = { r = 0.02, g = 0.02, b = 0.04, a = 0.92 },
-        panelInset = { r = 0.0, g = 0.0, b = 0.0, a = 0.55 },
-        border = { r = 0.2, g = 0.28, b = 0.38, a = 0.45 },
-        borderSoft = { r = 0.35, g = 0.4, b = 0.5, a = 0.2 },
-        listBorder = { r = 0.3, g = 0.35, b = 0.45, a = 0.18 },
-        good = { r = 0.46, g = 0.9, b = 0.58 },
-        bad = { r = 1.0, g = 0.45, b = 0.45 },
+        0.92, 0.94, 0.98, 0.55, 0.62, 0.72, 0.55, 0.78, 1.0,
+        0.22, 0.42, 0.62, 0.45, 0.4, 0.65, 0.95, 0.22, 0.02, 0.02, 0.04, 0.92, 0, 0, 0, 0.55,
+        0.2, 0.28, 0.38, 0.45, 0.35, 0.4, 0.5, 0.2, 0.3, 0.35, 0.45, 0.18, 0.46, 0.9, 0.58, 1.0, 0.45, 0.45,
     },
     light = {
-        text = { r = 0.14, g = 0.18, b = 0.24 },
-        textMuted = { r = 0.38, g = 0.44, b = 0.52 },
-        accent = { r = 0.12, g = 0.44, b = 0.76 },
-        sel = { r = 0.42, g = 0.67, b = 0.95, a = 0.34 },
-        hi = { r = 0.28, g = 0.52, b = 0.82, a = 0.12 },
-        panel = { r = 0.96, g = 0.97, b = 1.0, a = 0.96 },
-        panelInset = { r = 0.88, g = 0.91, b = 0.96, a = 0.96 },
-        border = { r = 0.58, g = 0.67, b = 0.8, a = 0.9 },
-        borderSoft = { r = 0.52, g = 0.63, b = 0.78, a = 0.55 },
-        listBorder = { r = 0.52, g = 0.63, b = 0.78, a = 0.45 },
-        good = { r = 0.12, g = 0.55, b = 0.22 },
-        bad = { r = 0.75, g = 0.22, b = 0.22 },
+        0.14, 0.18, 0.24, 0.38, 0.44, 0.52, 0.12, 0.44, 0.76,
+        0.42, 0.67, 0.95, 0.34, 0.28, 0.52, 0.82, 0.12, 0.96, 0.97, 1.0, 0.96, 0.88, 0.91, 0.96, 0.96,
+        0.58, 0.67, 0.8, 0.9, 0.52, 0.63, 0.78, 0.55, 0.52, 0.63, 0.78, 0.45, 0.12, 0.55, 0.22, 0.75, 0.22, 0.22,
     },
     red = {
-        text = { r = 0.98, g = 0.92, b = 0.93 },
-        textMuted = { r = 0.72, g = 0.56, b = 0.58 },
-        accent = { r = 1.0, g = 0.34, b = 0.36 },
-        sel = { r = 0.72, g = 0.18, b = 0.22, a = 0.5 },
-        hi = { r = 1.0, g = 0.42, b = 0.4, a = 0.24 },
-        panel = { r = 0.09, g = 0.02, b = 0.04, a = 0.94 },
-        panelInset = { r = 0.16, g = 0.04, b = 0.06, a = 0.64 },
-        border = { r = 0.58, g = 0.18, b = 0.2, a = 0.65 },
-        borderSoft = { r = 0.74, g = 0.28, b = 0.3, a = 0.32 },
-        listBorder = { r = 0.62, g = 0.2, b = 0.24, a = 0.28 },
-        good = { r = 0.45, g = 0.88, b = 0.56 },
-        bad = { r = 1.0, g = 0.48, b = 0.48 },
+        0.98, 0.92, 0.93, 0.72, 0.56, 0.58, 1.0, 0.34, 0.36,
+        0.72, 0.18, 0.22, 0.5, 1.0, 0.42, 0.4, 0.24, 0.09, 0.02, 0.04, 0.94, 0.16, 0.04, 0.06, 0.64,
+        0.58, 0.18, 0.2, 0.65, 0.74, 0.28, 0.3, 0.32, 0.62, 0.2, 0.24, 0.28, 0.45, 0.88, 0.56, 1.0, 0.48, 0.48,
     },
     blue = {
-        text = { r = 0.91, g = 0.96, b = 1.0 },
-        textMuted = { r = 0.56, g = 0.68, b = 0.82 },
-        accent = { r = 0.34, g = 0.7, b = 1.0 },
-        sel = { r = 0.14, g = 0.34, b = 0.64, a = 0.48 },
-        hi = { r = 0.34, g = 0.7, b = 1.0, a = 0.22 },
-        panel = { r = 0.02, g = 0.05, b = 0.11, a = 0.94 },
-        panelInset = { r = 0.03, g = 0.1, b = 0.18, a = 0.62 },
-        border = { r = 0.2, g = 0.42, b = 0.74, a = 0.6 },
-        borderSoft = { r = 0.28, g = 0.52, b = 0.86, a = 0.28 },
-        listBorder = { r = 0.22, g = 0.46, b = 0.78, a = 0.24 },
-        good = { r = 0.48, g = 0.9, b = 0.64 },
-        bad = { r = 1.0, g = 0.5, b = 0.5 },
+        0.91, 0.96, 1.0, 0.56, 0.68, 0.82, 0.34, 0.7, 1.0,
+        0.14, 0.34, 0.64, 0.48, 0.34, 0.7, 1.0, 0.22, 0.02, 0.05, 0.11, 0.94, 0.03, 0.1, 0.18, 0.62,
+        0.2, 0.42, 0.74, 0.6, 0.28, 0.52, 0.86, 0.28, 0.22, 0.46, 0.78, 0.24, 0.48, 0.9, 0.64, 1.0, 0.5, 0.5,
     },
     green = {
-        text = { r = 0.92, g = 0.98, b = 0.94 },
-        textMuted = { r = 0.56, g = 0.74, b = 0.62 },
-        accent = { r = 0.34, g = 0.9, b = 0.5 },
-        sel = { r = 0.08, g = 0.42, b = 0.2, a = 0.48 },
-        hi = { r = 0.36, g = 1.0, b = 0.58, a = 0.2 },
-        panel = { r = 0.03, g = 0.08, b = 0.04, a = 0.94 },
-        panelInset = { r = 0.04, g = 0.14, b = 0.08, a = 0.62 },
-        border = { r = 0.16, g = 0.52, b = 0.28, a = 0.6 },
-        borderSoft = { r = 0.24, g = 0.66, b = 0.38, a = 0.3 },
-        listBorder = { r = 0.2, g = 0.58, b = 0.34, a = 0.24 },
-        good = { r = 0.44, g = 0.94, b = 0.56 },
-        bad = { r = 1.0, g = 0.48, b = 0.46 },
+        0.92, 0.98, 0.94, 0.56, 0.74, 0.62, 0.34, 0.9, 0.5,
+        0.08, 0.42, 0.2, 0.48, 0.36, 1.0, 0.58, 0.2, 0.03, 0.08, 0.04, 0.94, 0.04, 0.14, 0.08, 0.62,
+        0.16, 0.52, 0.28, 0.6, 0.24, 0.66, 0.38, 0.3, 0.2, 0.58, 0.34, 0.24, 0.44, 0.94, 0.56, 1.0, 0.48, 0.46,
     },
     yellow = {
-        text = { r = 0.2, g = 0.16, b = 0.04 },
-        textMuted = { r = 0.44, g = 0.36, b = 0.14 },
-        accent = { r = 0.92, g = 0.72, b = 0.16 },
-        sel = { r = 0.94, g = 0.78, b = 0.22, a = 0.34 },
-        hi = { r = 0.98, g = 0.84, b = 0.3, a = 0.16 },
-        panel = { r = 0.97, g = 0.91, b = 0.62, a = 0.96 },
-        panelInset = { r = 0.9, g = 0.82, b = 0.42, a = 0.94 },
-        border = { r = 0.7, g = 0.56, b = 0.16, a = 0.85 },
-        borderSoft = { r = 0.76, g = 0.62, b = 0.22, a = 0.5 },
-        listBorder = { r = 0.72, g = 0.58, b = 0.18, a = 0.44 },
-        good = { r = 0.12, g = 0.5, b = 0.2 },
-        bad = { r = 0.72, g = 0.2, b = 0.18 },
+        0.2, 0.16, 0.04, 0.44, 0.36, 0.14, 0.92, 0.72, 0.16,
+        0.94, 0.78, 0.22, 0.34, 0.98, 0.84, 0.3, 0.16, 0.97, 0.91, 0.62, 0.96, 0.9, 0.82, 0.42, 0.94,
+        0.7, 0.56, 0.16, 0.85, 0.76, 0.62, 0.22, 0.5, 0.72, 0.58, 0.18, 0.44, 0.12, 0.5, 0.2, 0.72, 0.2, 0.18,
     },
     purple = {
-        text = { r = 0.96, g = 0.92, b = 1.0 },
-        textMuted = { r = 0.66, g = 0.58, b = 0.8 },
-        accent = { r = 0.72, g = 0.46, b = 1.0 },
-        sel = { r = 0.38, g = 0.18, b = 0.62, a = 0.48 },
-        hi = { r = 0.78, g = 0.5, b = 1.0, a = 0.2 },
-        panel = { r = 0.06, g = 0.03, b = 0.1, a = 0.94 },
-        panelInset = { r = 0.12, g = 0.05, b = 0.18, a = 0.62 },
-        border = { r = 0.42, g = 0.24, b = 0.72, a = 0.6 },
-        borderSoft = { r = 0.58, g = 0.34, b = 0.9, a = 0.3 },
-        listBorder = { r = 0.5, g = 0.28, b = 0.8, a = 0.24 },
-        good = { r = 0.44, g = 0.9, b = 0.58 },
-        bad = { r = 1.0, g = 0.46, b = 0.56 },
+        0.96, 0.92, 1.0, 0.66, 0.58, 0.8, 0.72, 0.46, 1.0,
+        0.38, 0.18, 0.62, 0.48, 0.78, 0.5, 1.0, 0.2, 0.06, 0.03, 0.1, 0.94, 0.12, 0.05, 0.18, 0.62,
+        0.42, 0.24, 0.72, 0.6, 0.58, 0.34, 0.9, 0.3, 0.5, 0.28, 0.8, 0.24, 0.44, 0.9, 0.58, 1.0, 0.46, 0.56,
     },
     orange = {
-        text = { r = 1.0, g = 0.94, b = 0.88 },
-        textMuted = { r = 0.78, g = 0.6, b = 0.46 },
-        accent = { r = 1.0, g = 0.56, b = 0.18 },
-        sel = { r = 0.72, g = 0.32, b = 0.08, a = 0.48 },
-        hi = { r = 1.0, g = 0.62, b = 0.22, a = 0.22 },
-        panel = { r = 0.1, g = 0.05, b = 0.02, a = 0.94 },
-        panelInset = { r = 0.18, g = 0.09, b = 0.03, a = 0.62 },
-        border = { r = 0.74, g = 0.36, b = 0.08, a = 0.62 },
-        borderSoft = { r = 0.88, g = 0.48, b = 0.14, a = 0.3 },
-        listBorder = { r = 0.78, g = 0.4, b = 0.1, a = 0.24 },
-        good = { r = 0.52, g = 0.9, b = 0.56 },
-        bad = { r = 1.0, g = 0.46, b = 0.4 },
+        1.0, 0.94, 0.88, 0.78, 0.6, 0.46, 1.0, 0.56, 0.18,
+        0.72, 0.32, 0.08, 0.48, 1.0, 0.62, 0.22, 0.22, 0.1, 0.05, 0.02, 0.94, 0.18, 0.09, 0.03, 0.62,
+        0.74, 0.36, 0.08, 0.62, 0.88, 0.48, 0.14, 0.3, 0.78, 0.4, 0.1, 0.24, 0.52, 0.9, 0.56, 1.0, 0.46, 0.4,
     },
     teal = {
-        text = { r = 0.9, g = 0.98, b = 0.98 },
-        textMuted = { r = 0.54, g = 0.76, b = 0.76 },
-        accent = { r = 0.22, g = 0.84, b = 0.82 },
-        sel = { r = 0.06, g = 0.42, b = 0.42, a = 0.46 },
-        hi = { r = 0.28, g = 0.92, b = 0.88, a = 0.2 },
-        panel = { r = 0.02, g = 0.08, b = 0.08, a = 0.94 },
-        panelInset = { r = 0.03, g = 0.15, b = 0.14, a = 0.62 },
-        border = { r = 0.14, g = 0.52, b = 0.5, a = 0.62 },
-        borderSoft = { r = 0.2, g = 0.68, b = 0.64, a = 0.3 },
-        listBorder = { r = 0.18, g = 0.6, b = 0.58, a = 0.24 },
-        good = { r = 0.48, g = 0.94, b = 0.62 },
-        bad = { r = 1.0, g = 0.48, b = 0.48 },
+        0.9, 0.98, 0.98, 0.54, 0.76, 0.76, 0.22, 0.84, 0.82,
+        0.06, 0.42, 0.42, 0.46, 0.28, 0.92, 0.88, 0.2, 0.02, 0.08, 0.08, 0.94, 0.03, 0.15, 0.14, 0.62,
+        0.14, 0.52, 0.5, 0.62, 0.2, 0.68, 0.64, 0.3, 0.18, 0.6, 0.58, 0.24, 0.48, 0.94, 0.62, 1.0, 0.48, 0.48,
     },
     rose = {
-        text = { r = 1.0, g = 0.93, b = 0.96 },
-        textMuted = { r = 0.78, g = 0.58, b = 0.68 },
-        accent = { r = 1.0, g = 0.42, b = 0.66 },
-        sel = { r = 0.68, g = 0.18, b = 0.4, a = 0.46 },
-        hi = { r = 1.0, g = 0.48, b = 0.72, a = 0.2 },
-        panel = { r = 0.1, g = 0.03, b = 0.07, a = 0.94 },
-        panelInset = { r = 0.16, g = 0.05, b = 0.11, a = 0.62 },
-        border = { r = 0.72, g = 0.22, b = 0.44, a = 0.62 },
-        borderSoft = { r = 0.86, g = 0.34, b = 0.58, a = 0.3 },
-        listBorder = { r = 0.78, g = 0.28, b = 0.5, a = 0.24 },
-        good = { r = 0.48, g = 0.92, b = 0.62 },
-        bad = { r = 1.0, g = 0.46, b = 0.54 },
+        1.0, 0.93, 0.96, 0.78, 0.58, 0.68, 1.0, 0.42, 0.66,
+        0.68, 0.18, 0.4, 0.46, 1.0, 0.48, 0.72, 0.2, 0.1, 0.03, 0.07, 0.94, 0.16, 0.05, 0.11, 0.62,
+        0.72, 0.22, 0.44, 0.62, 0.86, 0.34, 0.58, 0.3, 0.78, 0.28, 0.5, 0.24, 0.48, 0.92, 0.62, 1.0, 0.46, 0.54,
     },
 }
 
-qtRunner.ThemeOrder = {
+local function newColorView()
+    local function c3()
+        return { r = 0, g = 0, b = 0 }
+    end
+    local function c4()
+        return { r = 0, g = 0, b = 0, a = 1 }
+    end
+    return {
+        text = c3(),
+        textMuted = c3(),
+        accent = c3(),
+        sel = c4(),
+        hi = c4(),
+        panel = c4(),
+        panelInset = c4(),
+        border = c4(),
+        borderSoft = c4(),
+        listBorder = c4(),
+        good = c3(),
+        bad = c3(),
+    }
+end
+
+local function applyPackedTheme(p, view)
+    local i = 1
+    local function u3(t)
+        t.r, t.g, t.b = p[i], p[i + 1], p[i + 2]
+        i = i + 3
+    end
+    local function u4(t)
+        t.r, t.g, t.b, t.a = p[i], p[i + 1], p[i + 2], p[i + 3]
+        i = i + 4
+    end
+    u3(view.text)
+    u3(view.textMuted)
+    u3(view.accent)
+    u4(view.sel)
+    u4(view.hi)
+    u4(view.panel)
+    u4(view.panelInset)
+    u4(view.border)
+    u4(view.borderSoft)
+    u4(view.listBorder)
+    u3(view.good)
+    u3(view.bad)
+end
+
+local themeOrder = {
     "dark",
     "light",
     "red",
@@ -156,7 +112,7 @@ qtRunner.ThemeOrder = {
     "rose",
 }
 
-qtRunner.ThemeLabels = {
+local themeLabels = {
     dark = "Dark",
     light = "Light",
     red = "Red",
@@ -169,61 +125,74 @@ qtRunner.ThemeLabels = {
     rose = "Rose",
 }
 
+local colorView = nil
+local colorsThemeApplied = nil
+
 function qtRunner:GetColors()
     local themeName = qtRunnerDB and qtRunnerDB.theme or "dark"
-    return self.Themes[themeName] or self.Themes.dark
+    if not colorView then
+        colorView = newColorView()
+    end
+    if colorsThemeApplied ~= themeName then
+        colorsThemeApplied = themeName
+        local packed = themesPacked[themeName] or themesPacked.dark
+        applyPackedTheme(packed, colorView)
+    end
+    return colorView
+end
+
+function qtRunner:ThemePreviewColors(themeName)
+    local p = themesPacked[themeName] or themesPacked.dark
+    return p[7], p[8], p[9], p[18], p[19], p[20]
 end
 
 function qtRunner:GetThemeList()
-    return self.ThemeOrder or { "dark", "light" }
+    return themeOrder
 end
 
 function qtRunner:GetThemeLabel(themeName)
-    return (self.ThemeLabels and self.ThemeLabels[themeName]) or themeName or "Dark"
+    return themeLabels[themeName] or themeName or "Dark"
 end
 
 function qtRunner:ApplyTheme()
     local colors = self:GetColors()
-    local runnerFrame = self.runnerFrame
-    local searchBox = self.searchBox
-    local selectedNameText = self.selectedNameText
-    local lineButtons = self.lineButtons or {}
-
-    if runnerFrame then
-        runnerFrame:SetBackdropColor(colors.panel.r, colors.panel.g, colors.panel.b, colors.panel.a)
-        runnerFrame:SetBackdropBorderColor(colors.border.r, colors.border.g, colors.border.b, colors.border.a)
-        if runnerFrame.searchBg then
-            runnerFrame.searchBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, colors.panelInset.a)
-            runnerFrame.searchBg:SetBackdropBorderColor(colors.borderSoft.r, colors.borderSoft.g, colors.borderSoft.b, colors.borderSoft.a)
-        end
-        if runnerFrame.dropBg then
-            runnerFrame.dropBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, 0.5 + (colors.panelInset.a * 0.15))
-            runnerFrame.dropBg:SetBackdropBorderColor(colors.listBorder.r, colors.listBorder.g, colors.listBorder.b, colors.listBorder.a)
-        end
+    if self._ApplyRunnerPanelColors then
+        self:_ApplyRunnerPanelColors(colors)
     end
-
-    if searchBox then
-        searchBox:SetTextColor(colors.accent.r, colors.accent.g, colors.accent.b)
-    end
-
-    if selectedNameText then
-        selectedNameText:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
-    end
-
-    for _, btn in ipairs(lineButtons or {}) do
-        if btn and btn.hi then
-            btn.hi:SetVertexColor(colors.hi.r, colors.hi.g, colors.hi.b, colors.hi.a)
-        end
-        if btn and btn.label then
-            btn.label:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
-        end
-    end
-
     if self.RefreshSettingsTheme then
         self:RefreshSettingsTheme()
     end
+    if self.RefreshRunnerList and self._RunnerFrameIsVisible and self:_RunnerFrameIsVisible() then
+        self:RefreshRunnerList()
+    end
+end
 
-    if self.RefreshRunnerList and runnerFrame and runnerFrame:IsShown() then
+function qtRunner:IsQuestieEnabled()
+    if qtRunnerDB and qtRunnerDB.useQuestie == false then
+        return false
+    end
+    return true
+end
+
+function qtRunner:IsTomTomEnabled()
+    if qtRunnerDB and qtRunnerDB.useTomTom == false then
+        return false
+    end
+    return true
+end
+
+function qtRunner:OnIntegrationChanged()
+    if qtRunnerSearchData then
+        qtRunnerSearchData._questieDepsReady = nil
+        qtRunnerSearchData._questieReady = nil
+        if qtRunnerSearchData.ClearQuestieAttunableCache then
+            qtRunnerSearchData:ClearQuestieAttunableCache()
+        end
+    end
+    if qtRunnerSearchMode and qtRunnerSearchMode.MarkDirty then
+        qtRunnerSearchMode:MarkDirty()
+    end
+    if self.RefreshRunnerList then
         self:RefreshRunnerList()
     end
 end
@@ -233,10 +202,16 @@ function qtRunner:ResetDefaults()
     qtRunnerDB.theme = "dark"
     qtRunnerDB.submitWithEnter = true
     qtRunnerDB.submitWithBacktick = true
+    qtRunnerDB.useQuestie = true
+    qtRunnerDB.useTomTom = true
+    qtRunnerDB.showZoneAttuneBar = false
+    qtRunnerDB.showZoneAttuneAffixes = false
+    qtRunnerDB.showZoneAttuneRemaining = false
     qtRunnerDB.aliases = qtRunnerData:GetDefaultAliases()
     qtRunnerData:SetAliases(qtRunnerDB.aliases)
     if self.RefreshSettings then
         self:RefreshSettings()
     end
     self:ApplyTheme()
+    self:OnIntegrationChanged()
 end

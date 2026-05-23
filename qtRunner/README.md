@@ -1,149 +1,313 @@
-<div align="center">
-    <img src="https://i.imgur.com/0cOfkms.jpeg" width="1280" alt="qtRunner Banner"/>
-</div>
+# qtRunner
 
-<h1 align="center">qtRunner</h1>
 
-<p align="center">
-    <em>The lightning-fast warp lookup and teleportation runner for World of Warcraft 3.3.5a</em>
-</p>
 
-<p align="center">
-    <a href="https://www.lua.org/">
-        <img src="https://img.shields.io/badge/Lua-5.1-2C2D72?style=for-the-badge&logo=lua" alt="Lua 5.1"/>
-    </a>
-    <a href="#">
-        <img src="https://img.shields.io/badge/WoW-3.3.5a-C79C6E?style=for-the-badge" alt="WoW 3.3.5a"/>
-    </a>
-    <a href="LICENSE">
-        <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License"/>
-    </a>
-</p>
+## The lightning-fast warp lookup and teleportation runner for World of Warcraft 3.3.5a
 
----
 
-## 📋 Table of Contents
-- [✨ Features](#-features)
-- [📸 Preview](#-preview)
-- [📦 Installation](#-installation)
-- [💬 Slash Commands](#-slash-commands)
-- [⚙️ Settings](#️-settings)
-- [🧭 Default Aliases](#-default-aliases)
-- [📁 Project Structure](#-project-structure)
 
----
+#### Lua 5.1 | WoW 3.3.5a | MIT License
 
-## ✨ Features
 
-- 🔍 **Instant Search**: Filter learned destinations as you type (Name or Alias)
-- ⚡ **Direct Teleport**: Jump straight to the selected zone
-- 🖼️ **Icon Preview**: See the destination spell icon before you commit
-- ⭐ **Default Zones**: Set a favorite destination to be highlighted on open
-- ✏️ **Alias Editor**: Manage shorthand names in-game (no Lua editing needed)
-- ⌨️ **Submit Keys**: Customizable behavior for `Enter` and `` ` ``
-- 🎨 **Themes**: Switch between **Dark** and **Light** modes
-- 🎮 **Quick Access**: Keybind support and slash commands
 
----
+\------------------------------------------------------------
 
-## 📸 Preview
 
-<div align="center">
-    <table>
-        <tr>
-            <td rowspan="2" valign="center">
-                <img src="https://github.com/user-attachments/assets/00737a0b-9ee9-4190-8076-c7bdae90b465" width="300" alt="Main UI"/>
-            </td>
-            <td>
-                <img src="https://github.com/user-attachments/assets/09784564-1e9a-461c-91c7-2a819d236c9e" width="500" alt="Config UI 1"/>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <img src="https://github.com/user-attachments/assets/d975cfc6-3f92-4af7-bf23-34363e49aa41" width="500" alt="Config UI 2"/>
-            </td>
-        </tr>
-    </table>
-    <p><em>Modern search interface and deep customization panels.</em></p>
-</div>
 
----
+## Table of Contents
 
-## 📦 Installation
 
-1. Download or clone this repository.
-2. Place the `qtRunner` folder into your WoW addons directory:
-   ```text
-   Synastria/Interface/AddOns/qtRunner/
-   ```
-3. Ensure the following files are present inside the folder:
-   - `qtRunner.toc`, `qtRunner.lua`, `qtRunnerData.lua`, `qtRunnerConfig.lua`, `qtRunnerOptions.lua`, `Bindings.xml`
-4. Enable **qtRunner** on the character selection screen.
 
----
+##### \- Features
 
-## 🕹️ Usage
+##### \- Preview
 
-### Open the runner
-- Press `` ` `` (default keybind) or type `/qtr`
+##### \- Installation
 
-### Basic flow
-1. **Search**: Start typing a zone name or alias.
-2. **Select**: Use the list to find your target.
-3. **Teleport**: Press `Enter` or `` ` `` to warp (per your settings).
-4. **Close**: Press `Escape` to hide the window.
+##### \- Usage
 
-💡 **Pro Tip**: Double-clicking a row teleports you immediately.
+##### \- Slash Commands
 
----
+##### \- Settings
 
-## 💬 Slash Commands
+##### \- Default Aliases
 
-| Command | Action |
-|:---|:---|
-| `/qtr` | Toggle the runner window |
-| `/qtr show` | Force show the window |
-| `/qtr hide` | Force hide the window |
-| `/qtr config` | Open the Control Center (Themes, Aliases, Keys) |
-| `/qtr panel` | Open Blizzard Interface Options |
+##### \- Project Structure
 
----
+##### \- License
 
-## ⚙️ Settings
 
-Use `/qtr config` to customize your experience:
-- **Default Destination**: Choose which zone highlights first.
-- **Key Behavior**: Toggle submit on `Enter` or the hotkey.
-- **Visuals**: Toggle between Light and Dark themes.
-- **Alias Management**: Add, edit, or delete your custom shorthand.
 
----
+\------------------------------------------------------------
 
-## 🧭 Default Aliases
 
-- `dal` → **Dalaran**
-- `shat` → **Shattrath City**
-- `org` → **Orgrimmar**
-- `sw` → **Stormwind City**
-- `zg` → **Stranglethorn Vale**
 
----
+#### Features
 
-## 📁 Project Structure
 
-```text
+
+|**Feature**|**Description**|
+|-|-|
+|**Instant Search**|**Filter learned destinations as you type**|
+|**Direct Teleport**|**Jump straight to the selected zone**|
+|**Icon Preview**|**See the destination spell icon before**|
+|**Default Zones**|**Set a favorite to highlight on open**|
+|**Alias Editor**|**Manage shorthand names in-game**|
+|**Submit Keys**|**Customizable behavior for Enter and `**|
+|**Themes**|**Switch between Dark and Light modes**|
+|**Quick Access**|**Keybind support and slash commands**|
+
+
+
+\------------------------------------------------------------
+
+
+
+### Preview
+
+
+
+Main UI:
+
+https://github.com/user-attachments/assets/00737a0b-9ee9-4190-8076-c7bdae90b465
+
+
+
+Config UI 1:
+
+https://github.com/user-attachments/assets/09784564-1e9a-461c-91c7-2a819d236c9e
+
+
+
+Config UI 2:
+
+https://github.com/user-attachments/assets/d975cfc6-3f92-4af7-bf23-34363e49aa41
+
+
+
+Modern search interface and deep customization panels.
+
+
+
+\------------------------------------------------------------
+
+
+
+### Installation
+
+
+
+1\. Download or clone this repository.
+
+
+
+2\. Place the qtRunner folder into your WoW addons directory:
+
+
+
+&#x20;  Synastria/Interface/AddOns/qtRunner/
+
+
+
+3\. Ensure the following files are present inside the folder:
+
+
+
+&#x20;  - qtRunner.toc
+
+&#x20;  - qtRunner.lua
+
+&#x20;  - qtRunnerData.lua
+
+&#x20;  - qtRunnerConfig.lua
+
+&#x20;  - qtRunnerOptions.lua
+
+&#x20;  - Bindings.xml
+
+
+
+4\. Enable qtRunner on the character selection screen.
+
+
+
+\------------------------------------------------------------
+
+
+
+\## Usage
+
+
+
+\### Open the runner
+
+
+
+Press the backtick key (`) by default, or type:
+
+
+
+&#x20;  /qtr
+
+
+
+\### Basic flow
+
+
+
+1\. Search:
+
+&#x20;  Start typing a zone name or alias.
+
+
+
+2\. Select:
+
+&#x20;  Use the list to find your target.
+
+
+
+3\. Teleport:
+
+&#x20;  Press Enter or the backtick key (`) to warp, depending on your settings.
+
+
+
+4\. Close:
+
+&#x20;  Press Escape to hide the window.
+
+
+
+Pro Tip:
+
+Double-clicking a row teleports you immediately.
+
+
+
+\------------------------------------------------------------
+
+
+
+## Slash Commands
+
+
+
+|Command|Action|
+|-|-|
+|/qtr|Toggle the runner window|
+|/qtr show|Force show the window|
+|/qtr config|Open the Control Center|
+|/qtr panel|Open Blizzard Interface Options|
+
+
+
+\------------------------------------------------------------
+
+
+
+Settings
+
+
+
+Use the following command to customize your experience:
+
+
+
+* &#x20;  /qtr config
+
+
+Available settings:
+
+
+
+\- Default Destination:
+
+&#x20; Choose which zone highlights first.
+
+
+
+\- Key Behavior:
+
+&#x20; Toggle submit on Enter or the hotkey.
+
+
+
+\- Visuals:
+
+&#x20; Toggle between Light and Dark themes.
+
+
+
+\- Alias Management:
+
+&#x20; Add, edit, or delete your custom shorthand.
+
+
+
+\------------------------------------------------------------
+
+
+
+\## Default Aliases
+
+
+
+|Alias|Destination|
+|-|-|
+|dal|Dalaran|
+|shat|Shattrath City|
+|org|Orgrimmar|
+|sw|Stormwind City|
+|zg|Stranglethorn Vale|
+
+
+
+\------------------------------------------------------------
+
+
+
+\## Project Structure
+
+
+
 qtRunner/
-├── qtRunner.toc         # Addon Manifest
-├── qtRunner.lua         # Core Logic & UI
-├── qtRunnerData.lua     # Warp Database
-├── qtRunnerConfig.lua   # Settings & Control Center
-├── qtRunnerOptions.lua  # Blizzard Interface Panel
-└── Bindings.xml         # Keybind Registration
-```
 
----
+|-- qtRunner.toc         # Addon Manifest
 
-<div align="center">
-    <sub>Built for efficiency. Part of the <b>Synastria</b> addon suite.</sub><br>
-    <a href="LICENSE">MIT License</a>
-</div>
+|-- qtRunner.lua         # Core Logic and UI
+
+|-- qtRunnerData.lua     # Warp Database
+
+|-- qtRunnerConfig.lua   # Settings and Control Center
+
+|-- qtRunnerOptions.lua  # Blizzard Interface Panel
+
+`-- Bindings.xml         # Keybind Registration
+
+
+
+\------------------------------------------------------------
+
+
+
+\## License
+
+
+
+MIT License
+
+
+
+See LICENSE for details.
+
+
+
+\------------------------------------------------------------
+
+
+
+Built for efficiency.
+
+Part of the Synastria addon suite.
+
