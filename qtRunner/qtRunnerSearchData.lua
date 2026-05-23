@@ -2734,6 +2734,237 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
 
     local objectives = wantItems and self:GetTrackerObjectives() or {}
     local tracked = self:GetTrackedLookup()
+    local zoneAttunePctById = {}
+    local zoneAttuneSeen = {}
+    local zoneAttuneCharSeen = {}
+    local zoneAttuneAccountSeen = {}
+    local zoneAffixIdsById = {}
+    local zoneAffixPctByKey = {}
+    local zoneAffixSeen = {}
+    local zoneAffixCharSeen = {}
+    local zoneAffixAccountSeen = {}
+    local includeZoneStats = qtRunner and qtRunner.IsZoneAttuneBarEnabled and qtRunner:IsZoneAttuneBarEnabled() or false
+    local includeZoneAffixes = includeZoneStats and qtRunner and qtRunner.IsZoneAttuneAffixesEnabled and qtRunner:IsZoneAttuneAffixesEnabled() or false
+    local zoneAttuneStats = {
+        zoneId = zoneId,
+        statsEnabled = includeZoneStats,
+        affixesEnabled = includeZoneAffixes,
+        total = 0,
+        count = 0,
+        complete = 0,
+        charCount = 0,
+        charDoneCount = 0,
+        accountCount = 0,
+        accountDoneCount = 0,
+        affixTotal = 0,
+        affixComplete = 0,
+        affixCharTotal = 0,
+        affixCharDoneTotal = 0,
+        affixCharComplete = 0,
+        affixAccountTotal = 0,
+        affixAccountDoneTotal = 0,
+        affixAccountComplete = 0,
+        pct = 0,
+    }
+
+    local function NormalizeZoneAttunePct(pct)
+        pct = tonumber(pct)
+        if pct == nil then
+            return nil
+        end
+        if pct < 0 then
+            return 0
+        elseif pct > 100 then
+            return 100
+        end
+        return pct
+    end
+
+    local function ReadZoneAttuneProgress(itemId, affixId)
+        if GetItemAttuneProgress then
+            local ok, progress = pcall(GetItemAttuneProgress, itemId, affixId, nil)
+            local pct = ok and NormalizeZoneAttunePct(progress) or nil
+            if pct ~= nil then
+                return pct
+            end
+        end
+        if GetHighestAttunePct then
+            local fallbackAffixId = affixId
+            if fallbackAffixId == nil then
+                fallbackAffixId = -1
+            end
+            local ok, progress = pcall(GetHighestAttunePct, itemId, fallbackAffixId)
+            return ok and NormalizeZoneAttunePct(progress) or nil
+        end
+        return nil
+    end
+
+    local function GetZoneAttuneHelperValue(itemId)
+        if not CanAttuneItemHelper then
+            return nil
+        end
+        local ok, value = pcall(CanAttuneItemHelper, itemId)
+        return ok and tonumber(value) or nil
+    end
+
+    local function GetZoneAttunePct(itemId)
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 then
+            return nil
+        end
+        local cached = zoneAttunePctById[itemId]
+        if cached ~= nil then
+            return cached or nil
+        end
+        local pct = ReadZoneAttuneProgress(itemId, nil)
+        if pct == nil then
+            zoneAttunePctById[itemId] = false
+            return nil
+        end
+        zoneAttunePctById[itemId] = pct
+        return pct
+    end
+
+    local function AddZoneAttuneProgress(itemId)
+        if not includeZoneStats then
+            return
+        end
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 or zoneAttuneSeen[itemId] then
+            return
+        end
+        zoneAttuneSeen[itemId] = true
+        local pct = GetZoneAttunePct(itemId)
+        if pct ~= nil then
+            zoneAttuneStats.total = zoneAttuneStats.total + pct
+            zoneAttuneStats.count = zoneAttuneStats.count + 1
+            if pct >= 100 then
+                zoneAttuneStats.complete = zoneAttuneStats.complete + 1
+            end
+        end
+    end
+
+    local function AddZoneAttuneBucket(itemId, seen, key)
+        if not includeZoneStats then
+            return
+        end
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 or seen[itemId] then
+            return
+        end
+        seen[itemId] = true
+        if GetZoneAttunePct(itemId) ~= nil then
+            zoneAttuneStats[key] = (zoneAttuneStats[key] or 0) + 1
+        end
+    end
+
+    local function AddZoneAttuneBuckets(itemId)
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 or GetZoneAttunePct(itemId) == nil then
+            return
+        end
+        local helperValue = GetZoneAttuneHelperValue(itemId)
+        if helperValue == 1 then
+            AddZoneAttuneBucket(itemId, zoneAttuneCharSeen, "charCount")
+        elseif helperValue and helperValue < 0 then
+            AddZoneAttuneBucket(itemId, zoneAttuneAccountSeen, "accountCount")
+        end
+    end
+
+    local function GetZoneAffixIds(itemId)
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 then
+            return nil
+        end
+        local cached = zoneAffixIdsById[itemId]
+        if cached ~= nil then
+            return cached or nil
+        end
+        if not GetItemAffixMask then
+            zoneAffixIdsById[itemId] = false
+            return nil
+        end
+        local ok, mask1, mask2 = pcall(GetItemAffixMask, itemId)
+        if not ok then
+            zoneAffixIdsById[itemId] = false
+            return nil
+        end
+        local ids = {}
+        if mask1 then
+            for b = 0, 31 do
+                if band(mask1, lshift(1, b)) ~= 0 then
+                    ids[#ids + 1] = b + 1
+                end
+            end
+        end
+        if mask2 then
+            for b = 0, 31 do
+                if band(mask2, lshift(1, b)) ~= 0 then
+                    ids[#ids + 1] = b + 33
+                end
+            end
+        end
+        if #ids == 0 then
+            zoneAffixIdsById[itemId] = false
+            return nil
+        end
+        zoneAffixIdsById[itemId] = ids
+        return ids
+    end
+
+    local function GetZoneAffixPct(itemId, affixId)
+        local key = tostring(itemId) .. ":" .. tostring(affixId)
+        local cached = zoneAffixPctByKey[key]
+        if cached ~= nil then
+            return cached or nil
+        end
+        local pct = ReadZoneAttuneProgress(itemId, affixId)
+        if pct == nil then
+            zoneAffixPctByKey[key] = false
+            return nil
+        end
+        zoneAffixPctByKey[key] = pct
+        return pct
+    end
+
+    local function AddZoneAffixProgress(itemId, seen, totalKey, completeKey)
+        if not includeZoneAffixes then
+            return
+        end
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 then
+            return
+        end
+        local ids = GetZoneAffixIds(itemId)
+        if not ids then
+            return
+        end
+        for i = 1, #ids do
+            local affixId = ids[i]
+            local key = tostring(itemId) .. ":" .. tostring(affixId)
+            if not seen[key] then
+                seen[key] = true
+                zoneAttuneStats[totalKey] = (zoneAttuneStats[totalKey] or 0) + 1
+                local pct = GetZoneAffixPct(itemId, affixId)
+                if pct and pct >= 100 then
+                    zoneAttuneStats[completeKey] = (zoneAttuneStats[completeKey] or 0) + 1
+                end
+            end
+        end
+    end
+
+    local function AddZoneAffixBuckets(itemId)
+        itemId = tonumber(itemId)
+        if not itemId or itemId <= 0 then
+            return
+        end
+        local helperValue = GetZoneAttuneHelperValue(itemId)
+        if helperValue == 1 then
+            AddZoneAffixProgress(itemId, zoneAffixCharSeen, "affixCharTotal", "affixCharComplete")
+        elseif helperValue and helperValue < 0 then
+            AddZoneAffixProgress(itemId, zoneAffixAccountSeen, "affixAccountTotal", "affixAccountComplete")
+        end
+    end
 
     local function AddItem(itemId)
         itemId = tonumber(itemId)
@@ -2744,7 +2975,7 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
             return
         end
         local itemName, itemLink, texture, itemQuality, itemLevel = self:ResolveItemDisplay(itemId)
-        local forgePct = (GetHighestAttunePct and GetHighestAttunePct(itemId, -1))
+        local forgePct = GetZoneAttunePct(itemId)
         local forgeItemTier = self:GetForgeItemTier(itemId, itemLink)
         local hasRollForge = forgeItemTier == 1 or forgeItemTier == 2 or forgeItemTier == 3
         if forgePct ~= nil and forgePct >= 100 then
@@ -2856,9 +3087,48 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
             local queryZoneIds = ExpandLootQueryZoneIds(zoneId)
             for zi = 1, #queryZoneIds do
                 local queryZoneId = queryZoneIds[zi]
+                if includeZoneStats then
+                    local okAll, allZoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, 0, 0, 1, 1)
+                    if okAll and type(allZoneItems) == "table" then
+                        for i = 1, #allZoneItems do
+                            AddZoneAttuneProgress(allZoneItems[i])
+                            AddZoneAffixProgress(allZoneItems[i], zoneAffixSeen, "affixTotal", "affixComplete")
+                        end
+                    end
+                    local okChar, charZoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, 1, 0, 1, 1)
+                    if okChar and type(charZoneItems) == "table" then
+                        for i = 1, #charZoneItems do
+                            AddZoneAttuneBucket(charZoneItems[i], zoneAttuneCharSeen, "charCount")
+                            AddZoneAffixProgress(charZoneItems[i], zoneAffixCharSeen, "affixCharTotal", "affixCharComplete")
+                        end
+                    end
+                    local okCharDone, charDoneZoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, -1, 0, 1, 1)
+                    if okCharDone and type(charDoneZoneItems) == "table" then
+                        for i = 1, #charDoneZoneItems do
+                            AddZoneAttuneBucket(charDoneZoneItems[i], zoneAttuneCharSeen, "charDoneCount")
+                            AddZoneAffixProgress(charDoneZoneItems[i], zoneAffixCharSeen, "affixCharDoneTotal", "affixCharComplete")
+                        end
+                    end
+                    local okAccount, accountZoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, 0, 1, 1, 1)
+                    if okAccount and type(accountZoneItems) == "table" then
+                        for i = 1, #accountZoneItems do
+                            AddZoneAttuneBucket(accountZoneItems[i], zoneAttuneAccountSeen, "accountCount")
+                            AddZoneAffixProgress(accountZoneItems[i], zoneAffixAccountSeen, "affixAccountTotal", "affixAccountComplete")
+                        end
+                    end
+                    local okAccountDone, accountDoneZoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, 0, -1, 1, 1)
+                    if okAccountDone and type(accountDoneZoneItems) == "table" then
+                        for i = 1, #accountDoneZoneItems do
+                            AddZoneAttuneBucket(accountDoneZoneItems[i], zoneAttuneAccountSeen, "accountDoneCount")
+                            AddZoneAffixProgress(accountDoneZoneItems[i], zoneAffixAccountSeen, "affixAccountDoneTotal", "affixAccountComplete")
+                        end
+                    end
+                end
                 local ok, zoneItems = pcall(ItemLocGetAllItemsInZone, queryZoneId, 0, 1) -- do not change
                 if ok and type(zoneItems) == "table" then
                     for i = 1, #zoneItems do
+                        AddZoneAttuneProgress(zoneItems[i])
+                        AddZoneAffixProgress(zoneItems[i], zoneAffixSeen, "affixTotal", "affixComplete")
                         AddItem(zoneItems[i])
                     end
                 end
@@ -2873,6 +3143,8 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
             end
             if objZone == zoneId then
                 if obj.objType == 1 then
+                    AddZoneAttuneProgress(obj.objId)
+                    AddZoneAffixProgress(obj.objId, zoneAffixSeen, "affixTotal", "affixComplete")
                     AddItem(obj.objId)
                 end
             end
@@ -2883,6 +3155,8 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
                 local npcCount = ItemLocGetObjCount(OBJTYPE_CREATURE, npcId) or 0
                 for idx = 1, npcCount do
                     local srcType, itemId = ItemLocGetObjAt(OBJTYPE_CREATURE, npcId, idx)
+                    AddZoneAttuneProgress(itemId)
+                    AddZoneAffixProgress(itemId, zoneAffixSeen, "affixTotal", "affixComplete")
                     AddItem(itemId)
                 end
             end
@@ -2896,6 +3170,9 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
     local npcs = {}
     for _, npc in pairs(npcById) do
         tinsert(npcs, npc)
+    end
+    if zoneAttuneStats.count > 0 then
+        zoneAttuneStats.pct = zoneAttuneStats.total / zoneAttuneStats.count
     end
 
     tsort(items, function(a, b)
@@ -2952,7 +3229,7 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
         return strlower(a.name) < strlower(b.name)
     end)
 
-    return items, quests, npcs
+    return items, quests, npcs, zoneAttuneStats
 end
 
 function qtRunnerSearchData:ToggleTracked(typeId, objId, trackedLookup)
