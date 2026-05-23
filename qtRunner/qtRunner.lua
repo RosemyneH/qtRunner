@@ -15,7 +15,7 @@ local GetSpellInfo = GetSpellInfo
 local InterfaceOptionsFrame_OpenToCategory = InterfaceOptionsFrame_OpenToCategory
 
 qtRunner = {}
-qtRunner.version = "bangarang PR 4"
+qtRunner.version = "bangarang"
 
 local defaults = {
     defaultZone = "Dalaran",
@@ -342,11 +342,11 @@ function qtRunner:HandleSearchTextChanged(text)
                     local waypoints = info and info.waypoints or 0
                     local tomtom = (info and info.tomtom) and "ready" or "missing"
                     print("[qtRunner] /al source: " ..
-                    tostring(src) ..
-                    " | tomtom: " ..
-                    tomtom ..
-                    " | sorted: " ..
-                    tostring(sorted) .. " | waypoints: " .. tostring(waypoints) .. " | tracked: " .. tostring(added))
+                        tostring(src) ..
+                        " | tomtom: " ..
+                        tomtom ..
+                        " | sorted: " ..
+                        tostring(sorted) .. " | waypoints: " .. tostring(waypoints) .. " | tracked: " .. tostring(added))
                 else
                     added = qtRunnerSearchMode:BulkTrackTrackerQuests() or 0
                     print("[qtRunner] /at source: tracker-set | tracked: " .. tostring(added))
@@ -576,9 +576,9 @@ local function UpdateZoneAttuneBar()
     end
     local target = ClampZoneAttunePct(stats.pct)
     local key = tostring(stats.zoneId or "") ..
-    ":" ..
-    tostring(stats.count or 0) ..
-    ":" .. tostring(stats.complete or 0) .. ":" .. tostring(math_floor((target * 10) + 0.5))
+        ":" ..
+        tostring(stats.count or 0) ..
+        ":" .. tostring(stats.complete or 0) .. ":" .. tostring(math_floor((target * 10) + 0.5))
     zoneAttuneBarFrame.stats = stats
     zoneAttuneBarFrame:Show()
     if zoneAttuneBarLastKey ~= key then
@@ -679,7 +679,7 @@ end
 
 local function GetFilteredLootZones(query)
     local all = qtRunnerSearchData and qtRunnerSearchData.GetLootZoneCatalog and qtRunnerSearchData:GetLootZoneCatalog() or
-    {}
+        {}
     if #all == 0 then
         local fallback = BuildLearnedZoneList()
         for i = 1, #fallback do
@@ -990,7 +990,7 @@ function qtRunner:RefreshRunnerList()
         end
     else
         local warpStick = (inWarp or zonePick) and qCompact == "" and stickZone and
-        (stickMode == "warp" or stickMode == "zone_pick")
+            (stickMode == "warp" or stickMode == "zone_pick")
         if warpStick then
             for i = 1, nRows do
                 local e = currentEntries[i]
@@ -1878,7 +1878,7 @@ function qtRunner:CreateSettingsPanel()
     info:SetPoint("TOPLEFT", 20, -55)
     info:SetWidth(520)
     info:SetText(
-    "Open the dedicated qtRunner settings window for defaults, alias editing, submit-key toggles, and theme switching.")
+        "Open the dedicated qtRunner settings window for defaults, alias editing, submit-key toggles, and theme switching.")
     info:SetTextColor(0.75, 0.75, 0.8)
     local instructions = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     instructions:SetPoint("TOPLEFT", info, "BOTTOMLEFT", 0, -22)
