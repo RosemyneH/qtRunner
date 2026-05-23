@@ -51,6 +51,8 @@ local trackActionsFrame = nil
 local zoneHelpButton = nil
 local qtRunnerRewardsTooltip = nil
 local qtRunnerModeHelpTooltip = nil
+local zoneAttuneBarFrame = nil
+local zoneAttuneBarLastKey = nil
 
 local FRAME_W = 208
 local ICON_SIZE = 56
@@ -60,6 +62,8 @@ local LIST_HEIGHT = 168
 local NUM_VISIBLE = math_max(1, math_floor(LIST_HEIGHT / LINE_HEIGHT))
 -- ʕ •ᴥ•ʔ Track bar (20) + extra gaps vs list tucked under search only (+24) ✿ ʕ •ᴥ•ʔ
 local TRACK_ACTIONS_EXTRA_HEIGHT = 24
+local ZONE_ATTUNE_BAR_H = 12
+local ZONE_ATTUNE_BAR_LERP = 0.1
 
 local function Trim(text)
     return strgsub(text or "", "^%s*(.-)%s*$", "%1")
@@ -422,6 +426,169 @@ local function LayoutRunnerTrackAndList()
     runnerFrame:SetHeight(ICON_SIZE + 112 + LIST_HEIGHT + 8 + hExtra)
 end
 
+local function ClampZoneAttunePct(pct)
+    pct = tonumber(pct) or 0
+    if pct < 0 then
+        return 0
+    elseif pct > 100 then
+        return 100
+    end
+    return pct
+end
+
+local function SetZoneAttuneBarVisual(pct)
+    if not zoneAttuneBarFrame or not zoneAttuneBarFrame.fill then
+        return
+    end
+    pct = ClampZoneAttunePct(pct)
+    local ratio = pct / 100
+    if ratio <= 0 then
+        zoneAttuneBarFrame.fill:Hide()
+    else
+        zoneAttuneBarFrame.fill:Show()
+        zoneAttuneBarFrame.fill:SetWidth(FRAME_W * ratio)
+    end
+    zoneAttuneBarFrame.fill:SetVertexColor(1 - ratio, ratio, 0.1, 1)
+    if zoneAttuneBarFrame.text then
+        zoneAttuneBarFrame.text:SetText(tostring(math_floor(pct + 0.5)) .. "%")
+    end
+end
+
+local function ZoneAttuneStatsLabel(stats)
+    if not stats or not stats.count or stats.count <= 0 then
+        return nil
+    end
+    return tostring(math_floor(ClampZoneAttunePct(stats.pct) + 0.5)) .. "%"
+end
+
+local function ZoneAttuneCountLabel(current, maxCount, pct)
+    current = math_floor((tonumber(current) or 0) + 0.5)
+    maxCount = math_floor((tonumber(maxCount) or 0) + 0.5)
+    pct = ClampZoneAttunePct(pct)
+    return tostring(current) .. "/" .. tostring(maxCount) .. " (" .. tostring(math_floor(pct + 0.5)) .. "%)"
+end
+
+local function ZoneAttuneRatioLabel(current, maxCount)
+    current = tonumber(current) or 0
+    maxCount = tonumber(maxCount) or 0
+    local pct = maxCount > 0 and ((current / maxCount) * 100) or 0
+    return ZoneAttuneCountLabel(current, maxCount, pct)
+end
+
+local function ZoneAttuneAvailableDoneLabel(available, done)
+    available = tonumber(available) or 0
+    done = tonumber(done) or 0
+    local total = available + done
+    local pct = total > 0 and ((done / total) * 100) or 0
+    return ZoneAttuneCountLabel(done, total, pct)
+end
+
+local function ZoneAttuneDoneFromPct(available, pct)
+    available = tonumber(available) or 0
+    pct = ClampZoneAttunePct(pct)
+    if available <= 0 or pct <= 0 then
+        return 0
+    elseif pct >= 100 then
+        return available
+    end
+    return (available * pct) / (100 - pct)
+end
+
+local function AddZoneAttuneRemainingLine(amount, noun)
+    if not qtRunner:IsZoneAttuneRemainingEnabled() then
+        return
+    end
+    amount = math_floor((tonumber(amount) or 0) + 0.5)
+    if amount <= 0 then
+        return
+    end
+    GameTooltip:AddLine("  " .. tostring(amount) .. " " .. noun .. " Left", 0.58, 0.62, 0.68)
+end
+
+local function ShowZoneAttuneTooltip(owner)
+    local stats = owner and owner.stats
+    local label = ZoneAttuneStatsLabel(stats)
+    if not label then
+        return
+    end
+    GameTooltip:SetOwner(owner, "ANCHOR_BOTTOM")
+    if GameTooltip.ClearLines then
+        GameTooltip:ClearLines()
+    end
+    GameTooltip:SetText("Zone Attunement", 1, 1, 1, true)
+    GameTooltip:AddDoubleLine("Character Attunes:", ZoneAttuneAvailableDoneLabel(stats.charCount, ZoneAttuneDoneFromPct(stats.charCount, stats.pct)), 0.75, 1, 0.75, 1, 1, 1)
+    AddZoneAttuneRemainingLine(stats.charCount, "Items")
+    GameTooltip:AddDoubleLine("Account Attunes:", ZoneAttuneAvailableDoneLabel(stats.accountCount, stats.accountDoneCount), 0.75, 0.88, 1, 1, 1, 1)
+    AddZoneAttuneRemainingLine(stats.accountCount, "Items")
+    if (stats.affixCharTotal or 0) > 0 or (stats.affixCharDoneTotal or 0) > 0 or (stats.affixAccountTotal or 0) > 0 or (stats.affixAccountDoneTotal or 0) > 0 then
+        GameTooltip:AddLine(" ", 1, 1, 1)
+        local accountAffixTotal = (stats.affixAccountTotal or 0) + (stats.affixAccountDoneTotal or 0)
+        local accountAffixPct = accountAffixTotal > 0 and (((stats.affixAccountDoneTotal or 0) / accountAffixTotal) * 100) or 0
+        GameTooltip:AddDoubleLine("Character Affixes:", ZoneAttuneAvailableDoneLabel(stats.affixCharTotal, ZoneAttuneDoneFromPct(stats.affixCharTotal, accountAffixPct)), 0.75, 1, 0.75, 1, 1, 1)
+        AddZoneAttuneRemainingLine(stats.affixCharTotal, "Affixes")
+        GameTooltip:AddDoubleLine("Account Affixes:", ZoneAttuneAvailableDoneLabel(stats.affixAccountTotal, stats.affixAccountDoneTotal), 0.75, 0.88, 1, 1, 1, 1)
+        AddZoneAttuneRemainingLine(stats.affixAccountTotal, "Affixes")
+    end
+    GameTooltip:AddLine("Total includes obtainable attunable items, including already attuned items.", 0.58, 0.62, 0.68, true)
+    GameTooltip:Show()
+end
+
+local function HideZoneAttuneBar()
+    zoneAttuneBarLastKey = nil
+    if zoneAttuneBarFrame then
+        zoneAttuneBarFrame:SetScript("OnUpdate", nil)
+        zoneAttuneBarFrame.stats = nil
+        zoneAttuneBarFrame:Hide()
+        SetZoneAttuneBarVisual(0)
+        if zoneAttuneBarFrame.text then
+            zoneAttuneBarFrame.text:SetText("")
+        end
+    end
+end
+
+local function UpdateZoneAttuneBar()
+    if not zoneAttuneBarFrame then
+        return
+    end
+    if not qtRunner:IsZoneAttuneBarEnabled()
+        or not qtRunnerSearchMode
+        or qtRunnerSearchMode.mode ~= "zone_items"
+    then
+        HideZoneAttuneBar()
+        return
+    end
+    local stats = qtRunnerSearchMode.GetZoneAttuneStats and qtRunnerSearchMode:GetZoneAttuneStats() or nil
+    if not stats or not stats.count or stats.count <= 0 then
+        HideZoneAttuneBar()
+        return
+    end
+    local target = ClampZoneAttunePct(stats.pct)
+    local key = tostring(stats.zoneId or "") .. ":" .. tostring(stats.count or 0) .. ":" .. tostring(stats.complete or 0) .. ":" .. tostring(math_floor((target * 10) + 0.5))
+    zoneAttuneBarFrame.stats = stats
+    zoneAttuneBarFrame:Show()
+    if zoneAttuneBarLastKey ~= key then
+        zoneAttuneBarLastKey = key
+        zoneAttuneBarFrame.currentPct = 0
+        SetZoneAttuneBarVisual(0)
+    end
+    zoneAttuneBarFrame.targetPct = target
+    zoneAttuneBarFrame:SetScript("OnUpdate", function(self)
+        local cur = self.currentPct or 0
+        local dst = self.targetPct or 0
+        cur = cur + ((dst - cur) * ZONE_ATTUNE_BAR_LERP)
+        if cur > dst - 0.05 and cur < dst + 0.05 then
+            cur = dst
+            self:SetScript("OnUpdate", nil)
+        end
+        self.currentPct = cur
+        SetZoneAttuneBarVisual(cur)
+    end)
+end
+
+function qtRunner:RefreshZoneAttuneBar()
+    UpdateZoneAttuneBar()
+end
+
 local learnedZonesCache = nil
 local spellChangedFrame = nil
 
@@ -646,7 +813,15 @@ local function UpdatePreview()
     local entry = GetSelectedEntry()
     if modeNameText then
         if qtRunnerSearchMode then
-            modeNameText:SetText(qtRunnerSearchMode:GetModeLabel())
+            local modeLabel = qtRunnerSearchMode:GetModeLabel()
+            if qtRunner:IsZoneAttuneBarEnabled() and qtRunnerSearchMode.mode == "zone_items" then
+                local stats = qtRunnerSearchMode.GetZoneAttuneStats and qtRunnerSearchMode:GetZoneAttuneStats() or nil
+                local attuneLabel = ZoneAttuneStatsLabel(stats)
+                if attuneLabel then
+                    modeLabel = modeLabel .. " · " .. attuneLabel
+                end
+            end
+            modeNameText:SetText(modeLabel)
         else
             modeNameText:SetText("Warp")
         end
@@ -852,6 +1027,7 @@ function qtRunner:RefreshRunnerList()
     listScrollOffset = off
     LayoutRunnerTrackAndList()
     UpdateScrollList()
+    UpdateZoneAttuneBar()
 end
 
 function qtRunner:HandleControlCommand(key)
@@ -1204,6 +1380,31 @@ local function CreateRunnerFrame()
     runnerFrame:Hide()
     runnerFrame:EnableKeyboard(true)
 
+    zoneAttuneBarFrame = CreateFrame("Frame", nil, runnerFrame)
+    zoneAttuneBarFrame:SetSize(FRAME_W, ZONE_ATTUNE_BAR_H)
+    zoneAttuneBarFrame:SetPoint("TOPLEFT", runnerFrame, "TOPLEFT", 0, 0)
+    zoneAttuneBarFrame:SetFrameLevel((runnerFrame:GetFrameLevel() or 0) + 60)
+    zoneAttuneBarFrame:Hide()
+    zoneAttuneBarFrame:EnableMouse(true)
+    zoneAttuneBarFrame.bg = zoneAttuneBarFrame:CreateTexture(nil, "BACKGROUND")
+    zoneAttuneBarFrame.bg:SetAllPoints(zoneAttuneBarFrame)
+    zoneAttuneBarFrame.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+    zoneAttuneBarFrame.bg:SetVertexColor(0.82, 0.82, 0.82, 0.75)
+    zoneAttuneBarFrame.fill = zoneAttuneBarFrame:CreateTexture(nil, "ARTWORK")
+    zoneAttuneBarFrame.fill:SetPoint("LEFT", zoneAttuneBarFrame, "LEFT", 0, 0)
+    zoneAttuneBarFrame.fill:SetSize(1, ZONE_ATTUNE_BAR_H)
+    zoneAttuneBarFrame.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+    zoneAttuneBarFrame.text = zoneAttuneBarFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    zoneAttuneBarFrame.text:SetPoint("CENTER", zoneAttuneBarFrame, "CENTER", 0, 0)
+    zoneAttuneBarFrame.text:SetTextColor(1, 1, 1)
+    zoneAttuneBarFrame.text:SetShadowColor(0, 0, 0, 0.9)
+    zoneAttuneBarFrame.text:SetShadowOffset(1, -1)
+    zoneAttuneBarFrame:SetScript("OnEnter", ShowZoneAttuneTooltip)
+    zoneAttuneBarFrame:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+    SetZoneAttuneBarVisual(0)
+
     qtRunnerRewardsTooltip = CreateFrame("GameTooltip", "qtRunnerRewardsTooltip", UIParent, "GameTooltipTemplate")
     qtRunnerRewardsTooltip:SetFrameStrata("TOOLTIP")
     qtRunnerRewardsTooltip:Hide()
@@ -1523,6 +1724,7 @@ end
 function qtRunner:HideRunner()
     self:CloseLootDbWindow()
     HideQTRunnerRewardTooltip()
+    HideZoneAttuneBar()
     if runnerFrame then
         runnerFrame:SetScript("OnUpdate", nil)
         runnerFrame:Hide()
