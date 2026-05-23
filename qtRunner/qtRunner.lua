@@ -520,14 +520,14 @@ local function ShowZoneAttuneTooltip(owner)
     AddZoneAttuneRemainingLine(stats.charCount, "Items")
     GameTooltip:AddDoubleLine("Account Attunes:", ZoneAttuneAvailableDoneLabel(stats.accountCount, stats.accountDoneCount), 0.75, 0.88, 1, 1, 1, 1)
     AddZoneAttuneRemainingLine(stats.accountCount, "Items")
-    if (stats.affixCharTotal or 0) > 0 or (stats.affixCharDoneTotal or 0) > 0 or (stats.affixAccountTotal or 0) > 0 or (stats.affixAccountDoneTotal or 0) > 0 then
+    if (stats.affixCharTotal or 0) > 0 or (stats.affixCharComplete or 0) > 0 or (stats.affixAccountTotal or 0) > 0 or (stats.affixAccountComplete or 0) > 0 then
         GameTooltip:AddLine(" ", 1, 1, 1)
-        local accountAffixTotal = (stats.affixAccountTotal or 0) + (stats.affixAccountDoneTotal or 0)
-        local accountAffixPct = accountAffixTotal > 0 and (((stats.affixAccountDoneTotal or 0) / accountAffixTotal) * 100) or 0
-        GameTooltip:AddDoubleLine("Character Affixes:", ZoneAttuneAvailableDoneLabel(stats.affixCharTotal, ZoneAttuneDoneFromPct(stats.affixCharTotal, accountAffixPct)), 0.75, 1, 0.75, 1, 1, 1)
-        AddZoneAttuneRemainingLine(stats.affixCharTotal, "Affixes")
-        GameTooltip:AddDoubleLine("Account Affixes:", ZoneAttuneAvailableDoneLabel(stats.affixAccountTotal, stats.affixAccountDoneTotal), 0.75, 0.88, 1, 1, 1, 1)
-        AddZoneAttuneRemainingLine(stats.affixAccountTotal, "Affixes")
+        local charAffixLeft = (stats.affixCharTotal or 0) - (stats.affixCharComplete or 0)
+        local accountAffixLeft = (stats.affixAccountTotal or 0) - (stats.affixAccountComplete or 0)
+        GameTooltip:AddDoubleLine("Character Affixes:", ZoneAttuneRatioLabel(stats.affixCharComplete, stats.affixCharTotal), 0.75, 1, 0.75, 1, 1, 1)
+        AddZoneAttuneRemainingLine(charAffixLeft, "Affixes")
+        GameTooltip:AddDoubleLine("Account Affixes:", ZoneAttuneRatioLabel(stats.affixAccountComplete, stats.affixAccountTotal), 0.75, 0.88, 1, 1, 1, 1)
+        AddZoneAttuneRemainingLine(accountAffixLeft, "Affixes")
     end
     GameTooltip:AddLine("Total includes obtainable attunable items, including already attuned items.", 0.58, 0.62, 0.68, true)
     GameTooltip:Show()
