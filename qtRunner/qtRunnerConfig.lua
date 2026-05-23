@@ -204,6 +204,9 @@ function qtRunner:ResetDefaults()
     qtRunnerDB.submitWithBacktick = true
     qtRunnerDB.useQuestie = true
     qtRunnerDB.useTomTom = true
+    qtRunnerDB.showZoneAttuneBar = false
+    qtRunnerDB.showZoneAttuneAffixes = false
+    qtRunnerDB.showZoneAttuneRemaining = false
     qtRunnerDB.aliases = qtRunnerData:GetDefaultAliases()
     qtRunnerData:SetAliases(qtRunnerDB.aliases)
     if self.RefreshSettings then

@@ -24,6 +24,9 @@ local defaults = {
     submitWithBacktick = true,
     useQuestie = true,
     useTomTom = true,
+    showZoneAttuneBar = false,
+    showZoneAttuneAffixes = false,
+    showZoneAttuneRemaining = false,
 }
 
 local runnerFrame = nil
@@ -273,6 +276,30 @@ function qtRunner:IsSubmitKeyEnabled(key)
         return v
     end
     return false
+end
+
+function qtRunner:IsZoneAttuneBarEnabled()
+    local v = qtRunnerDB and qtRunnerDB.showZoneAttuneBar
+    if v == nil then
+        return defaults.showZoneAttuneBar
+    end
+    return v == true
+end
+
+function qtRunner:IsZoneAttuneAffixesEnabled()
+    local v = qtRunnerDB and qtRunnerDB.showZoneAttuneAffixes
+    if v == nil then
+        return defaults.showZoneAttuneAffixes
+    end
+    return v == true
+end
+
+function qtRunner:IsZoneAttuneRemainingEnabled()
+    local v = qtRunnerDB and qtRunnerDB.showZoneAttuneRemaining
+    if v == nil then
+        return defaults.showZoneAttuneRemaining
+    end
+    return v == true
 end
 
 function qtRunner:HandleSearchTextChanged(text)
