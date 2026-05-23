@@ -15,7 +15,7 @@ local GetSpellInfo = GetSpellInfo
 local InterfaceOptionsFrame_OpenToCategory = InterfaceOptionsFrame_OpenToCategory
 
 qtRunner = {}
-qtRunner.version = "bangarang PR 3"
+qtRunner.version = "bangarang PR 4"
 
 local defaults = {
     defaultZone = "Dalaran",
@@ -173,7 +173,8 @@ local function AppendBangSubmitHintToTooltip()
     end
     GameTooltip:AddLine(" ", 1, 1, 1)
     if #parts > 0 then
-        GameTooltip:AddLine("|cFF888888" .. table.concat(parts, "  ·  ") .. " — activate highlighted row|r", 0.65, 0.7, 0.76, true)
+        GameTooltip:AddLine("|cFF888888" .. table.concat(parts, "  ·  ") .. " — activate highlighted row|r", 0.65, 0.7,
+            0.76, true)
     else
         GameTooltip:AddLine("|cFF888888Enable ` or Enter in qtRunner settings to submit.|r", 0.65, 0.7, 0.76, true)
     end
@@ -340,7 +341,12 @@ function qtRunner:HandleSearchTextChanged(text)
                     local sorted = info and info.sorted or 0
                     local waypoints = info and info.waypoints or 0
                     local tomtom = (info and info.tomtom) and "ready" or "missing"
-                    print("[qtRunner] /al source: " .. tostring(src) .. " | tomtom: " .. tomtom .. " | sorted: " .. tostring(sorted) .. " | waypoints: " .. tostring(waypoints) .. " | tracked: " .. tostring(added))
+                    print("[qtRunner] /al source: " ..
+                    tostring(src) ..
+                    " | tomtom: " ..
+                    tomtom ..
+                    " | sorted: " ..
+                    tostring(sorted) .. " | waypoints: " .. tostring(waypoints) .. " | tracked: " .. tostring(added))
                 else
                     added = qtRunnerSearchMode:BulkTrackTrackerQuests() or 0
                     print("[qtRunner] /at source: tracker-set | tracked: " .. tostring(added))
@@ -373,12 +379,12 @@ function qtRunner:HandleSearchTextChanged(text)
                 qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
                 qtRunnerSearchMode.previewLootZoneName = nil
                 qtRunnerSearchMode:SetMode("zone_quests")
-            -- FEATURE CULLED zone NPC mode (!c): low value vs maintenance.
-            -- elseif cmd == "c" then
-            --     qtRunnerSearchMode:ClearLootZonePreview()
-            --     qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
-            --     qtRunnerSearchMode.previewLootZoneName = nil
-            --     qtRunnerSearchMode:SetMode("zone_npcs")
+                -- FEATURE CULLED zone NPC mode (!c): low value vs maintenance.
+                -- elseif cmd == "c" then
+                --     qtRunnerSearchMode:ClearLootZonePreview()
+                --     qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
+                --     qtRunnerSearchMode.previewLootZoneName = nil
+                --     qtRunnerSearchMode:SetMode("zone_npcs")
             elseif cmd == "q" then
                 qtRunnerSearchMode:ClearLootZonePreview()
                 qtRunnerSearchMode:SetMode("warp")
@@ -516,20 +522,26 @@ local function ShowZoneAttuneTooltip(owner)
         GameTooltip:ClearLines()
     end
     GameTooltip:SetText("Zone Attunement", 1, 1, 1, true)
-    GameTooltip:AddDoubleLine("Character Attunes:", ZoneAttuneAvailableDoneLabel(stats.charCount, ZoneAttuneDoneFromPct(stats.charCount, stats.pct)), 0.75, 1, 0.75, 1, 1, 1)
+    GameTooltip:AddDoubleLine("Character Attunes:",
+        ZoneAttuneAvailableDoneLabel(stats.charCount, ZoneAttuneDoneFromPct(stats.charCount, stats.pct)), 0.75, 1, 0.75,
+        1, 1, 1)
     AddZoneAttuneRemainingLine(stats.charCount, "Items")
-    GameTooltip:AddDoubleLine("Account Attunes:", ZoneAttuneAvailableDoneLabel(stats.accountCount, stats.accountDoneCount), 0.75, 0.88, 1, 1, 1, 1)
+    GameTooltip:AddDoubleLine("Account Attunes:",
+        ZoneAttuneAvailableDoneLabel(stats.accountCount, stats.accountDoneCount), 0.75, 0.88, 1, 1, 1, 1)
     AddZoneAttuneRemainingLine(stats.accountCount, "Items")
     if (stats.affixCharTotal or 0) > 0 or (stats.affixCharComplete or 0) > 0 or (stats.affixAccountTotal or 0) > 0 or (stats.affixAccountComplete or 0) > 0 then
         GameTooltip:AddLine(" ", 1, 1, 1)
         local charAffixLeft = (stats.affixCharTotal or 0) - (stats.affixCharComplete or 0)
         local accountAffixLeft = (stats.affixAccountTotal or 0) - (stats.affixAccountComplete or 0)
-        GameTooltip:AddDoubleLine("Character Affixes:", ZoneAttuneRatioLabel(stats.affixCharComplete, stats.affixCharTotal), 0.75, 1, 0.75, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Character Affixes:",
+            ZoneAttuneRatioLabel(stats.affixCharComplete, stats.affixCharTotal), 0.75, 1, 0.75, 1, 1, 1)
         AddZoneAttuneRemainingLine(charAffixLeft, "Affixes")
-        GameTooltip:AddDoubleLine("Account Affixes:", ZoneAttuneRatioLabel(stats.affixAccountComplete, stats.affixAccountTotal), 0.75, 0.88, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Account Affixes:",
+            ZoneAttuneRatioLabel(stats.affixAccountComplete, stats.affixAccountTotal), 0.75, 0.88, 1, 1, 1, 1)
         AddZoneAttuneRemainingLine(accountAffixLeft, "Affixes")
     end
-    GameTooltip:AddLine("Total includes obtainable attunable items, including already attuned items.", 0.58, 0.62, 0.68, true)
+    GameTooltip:AddLine("Total includes obtainable attunable items, including already attuned items.", 0.58, 0.62, 0.68,
+        true)
     GameTooltip:Show()
 end
 
@@ -563,7 +575,10 @@ local function UpdateZoneAttuneBar()
         return
     end
     local target = ClampZoneAttunePct(stats.pct)
-    local key = tostring(stats.zoneId or "") .. ":" .. tostring(stats.count or 0) .. ":" .. tostring(stats.complete or 0) .. ":" .. tostring(math_floor((target * 10) + 0.5))
+    local key = tostring(stats.zoneId or "") ..
+    ":" ..
+    tostring(stats.count or 0) ..
+    ":" .. tostring(stats.complete or 0) .. ":" .. tostring(math_floor((target * 10) + 0.5))
     zoneAttuneBarFrame.stats = stats
     zoneAttuneBarFrame:Show()
     if zoneAttuneBarLastKey ~= key then
@@ -663,7 +678,8 @@ local function GetFilteredZones(query)
 end
 
 local function GetFilteredLootZones(query)
-    local all = qtRunnerSearchData and qtRunnerSearchData.GetLootZoneCatalog and qtRunnerSearchData:GetLootZoneCatalog() or {}
+    local all = qtRunnerSearchData and qtRunnerSearchData.GetLootZoneCatalog and qtRunnerSearchData:GetLootZoneCatalog() or
+    {}
     if #all == 0 then
         local fallback = BuildLearnedZoneList()
         for i = 1, #fallback do
@@ -680,7 +696,8 @@ local function GetFilteredLootZones(query)
         end
     end
     tsort(out, function(a, b)
-        return CmpZoneSortKey(qtRunnerData:ZoneSearchSortKey(a.zoneName, q), qtRunnerData:ZoneSearchSortKey(b.zoneName, q))
+        return CmpZoneSortKey(qtRunnerData:ZoneSearchSortKey(a.zoneName, q),
+            qtRunnerData:ZoneSearchSortKey(b.zoneName, q))
     end)
     return out
 end
@@ -831,7 +848,8 @@ local function UpdatePreview()
         previewIcon:SetTexture(entry.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
         selectedNameText:SetText(entry.label or "")
         if entry.color then
-            selectedNameText:SetTextColor(entry.color.r or colors.text.r, entry.color.g or colors.text.g, entry.color.b or colors.text.b)
+            selectedNameText:SetTextColor(entry.color.r or colors.text.r, entry.color.g or colors.text.g,
+                entry.color.b or colors.text.b)
         else
             selectedNameText:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
         end
@@ -879,7 +897,8 @@ local function UpdateScrollList()
             end
             btn.label:SetText(label)
             if entry.color then
-                btn.label:SetTextColor(entry.color.r or colors.text.r, entry.color.g or colors.text.g, entry.color.b or colors.text.b)
+                btn.label:SetTextColor(entry.color.r or colors.text.r, entry.color.g or colors.text.g,
+                    entry.color.b or colors.text.b)
             else
                 btn.label:SetTextColor(colors.text.r, colors.text.g, colors.text.b)
             end
@@ -970,7 +989,8 @@ function qtRunner:RefreshRunnerList()
             end
         end
     else
-        local warpStick = (inWarp or zonePick) and qCompact == "" and stickZone and (stickMode == "warp" or stickMode == "zone_pick")
+        local warpStick = (inWarp or zonePick) and qCompact == "" and stickZone and
+        (stickMode == "warp" or stickMode == "zone_pick")
         if warpStick then
             for i = 1, nRows do
                 local e = currentEntries[i]
@@ -1044,12 +1064,12 @@ function qtRunner:HandleControlCommand(key)
         qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
         qtRunnerSearchMode.previewLootZoneName = nil
         qtRunnerSearchMode:SetMode("zone_quests")
-    -- FEATURE CULLED zone NPC mode (Ctrl+C).
-    -- elseif key == "C" then
-    --     qtRunnerSearchMode:ClearLootZonePreview()
-    --     qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
-    --     qtRunnerSearchMode.previewLootZoneName = nil
-    --     qtRunnerSearchMode:SetMode("zone_npcs")
+        -- FEATURE CULLED zone NPC mode (Ctrl+C).
+        -- elseif key == "C" then
+        --     qtRunnerSearchMode:ClearLootZonePreview()
+        --     qtRunnerSearchMode.previewLootZoneId = qtRunnerSearchData:GetCurrentZoneId()
+        --     qtRunnerSearchMode.previewLootZoneName = nil
+        --     qtRunnerSearchMode:SetMode("zone_npcs")
     elseif key == "Q" then
         qtRunnerSearchMode:ClearLootZonePreview()
         qtRunnerSearchMode:SetMode("warp")
@@ -1292,7 +1312,8 @@ local function QtRunnerShowModeHelpTooltip(owner)
         tt:AddLine(" ", 1, 1, 1)
         tt:AddDoubleLine("|cFFFFFFFF!w|r", "Clear all tracked & close", 0.9, 0.92, 1, 0.65, 0.7, 0.78)
         tt:AddLine(" ", 1, 1, 1)
-        tt:AddLine("|cFF666666Type |cFFFFFFFF!|r alone — mode shortcuts appear in the list (hover a row for details).|r", 0.55, 0.58, 0.62, true)
+        tt:AddLine("|cFF666666Type |cFFFFFFFF!|r alone — mode shortcuts appear in the list (hover a row for details).|r",
+            0.55, 0.58, 0.62, true)
         tt:AddLine("|cFF666666Type to filter zone names.|r", 0.55, 0.58, 0.62)
         QtRunnerPlaceModeHelpTooltip(owner)
         tt:Show()
@@ -1311,7 +1332,8 @@ local function QtRunnerShowModeHelpTooltip(owner)
         tt:AddDoubleLine("  |cFFFFFFFF/a|r", "Account attune + all factions (incl. rival tags)", 1, 1, 1, 0.72, 0.8, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/acc|r", "Account-only list + [A]/[H] tags", 1, 1, 1, 0.72, 0.8, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/c|r", "This character only (hide account-only rows)", 1, 1, 1, 0.72, 0.8, 1)
-        tt:AddDoubleLine("  |cFFFFFFFF/al|r |cFF888888·|r |cFFFFFFFF/all|r", "Bulk track zone quests (+ TomTom if set)", 1, 1, 1, 0.72, 0.8, 1)
+        tt:AddDoubleLine("  |cFFFFFFFF/al|r |cFF888888·|r |cFFFFFFFF/all|r", "Bulk track zone quests (+ TomTom if set)",
+            1, 1, 1, 0.72, 0.8, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/at|r", "Bulk track tracker quest set", 1, 1, 1, 0.72, 0.8, 1)
         tt:AddLine(" ", 1, 1, 1)
         tt:AddDoubleLine("|cFFFFFFFF!w|r", "Clear all tracked & close", 0.9, 0.92, 1, 0.65, 0.7, 0.78)
@@ -1345,7 +1367,8 @@ local function QtRunnerShowModeHelpTooltip(owner)
         tt:AddDoubleLine("  |cFFFFFFFF/vab|r", "Vendor + account BOE", 0.9, 1, 0.9, 0.72, 0.9, 0.72)
         tt:AddLine(" ", 1, 1, 1)
         tt:AddLine("|cFFB48CFFSource / attune|r", 0.7, 0.55, 1)
-        tt:AddDoubleLine("  |cFFFFFFFF/a|r |cFF888888·|r |cFFFFFFFF/acc|r", "Account attune filters", 0.92, 0.88, 1, 0.82, 0.75, 1)
+        tt:AddDoubleLine("  |cFFFFFFFF/a|r |cFF888888·|r |cFFFFFFFF/acc|r", "Account attune filters", 0.92, 0.88, 1, 0.82,
+            0.75, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/ab|r", "Account attunable BOE", 0.92, 0.88, 1, 0.82, 0.75, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/u|r", "Unique drops (char attunable)", 0.92, 0.88, 1, 0.82, 0.75, 1)
         tt:AddDoubleLine("  |cFFFFFFFF/ub|r", "Char uniques + account BOE", 0.92, 0.88, 1, 0.82, 0.75, 1)
@@ -1373,7 +1396,9 @@ local function CreateRunnerFrame()
     runnerFrame:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 10,
+        tile = true,
+        tileSize = 16,
+        edgeSize = 10,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
     runnerFrame:SetBackdropColor(0.02, 0.02, 0.04, 0.92)
@@ -1479,7 +1504,9 @@ local function CreateRunnerFrame()
     searchBg:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 8, edgeSize = 6,
+        tile = true,
+        tileSize = 8,
+        edgeSize = 6,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     searchBg:SetBackdropColor(0, 0, 0, 0.55)
@@ -1535,7 +1562,9 @@ local function CreateRunnerFrame()
     dropBg:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 16, edgeSize = 6,
+        tile = true,
+        tileSize = 16,
+        edgeSize = 6,
         insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     dropBg:SetBackdropColor(0, 0, 0, 0.5)
@@ -1679,12 +1708,16 @@ function qtRunner:_ApplyRunnerPanelColors(colors)
     runnerFrame:SetBackdropColor(colors.panel.r, colors.panel.g, colors.panel.b, colors.panel.a)
     runnerFrame:SetBackdropBorderColor(colors.border.r, colors.border.g, colors.border.b, colors.border.a)
     if runnerFrame.searchBg then
-        runnerFrame.searchBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, colors.panelInset.a)
-        runnerFrame.searchBg:SetBackdropBorderColor(colors.borderSoft.r, colors.borderSoft.g, colors.borderSoft.b, colors.borderSoft.a)
+        runnerFrame.searchBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b,
+            colors.panelInset.a)
+        runnerFrame.searchBg:SetBackdropBorderColor(colors.borderSoft.r, colors.borderSoft.g, colors.borderSoft.b,
+            colors.borderSoft.a)
     end
     if runnerFrame.dropBg then
-        runnerFrame.dropBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b, 0.5 + (colors.panelInset.a * 0.15))
-        runnerFrame.dropBg:SetBackdropBorderColor(colors.listBorder.r, colors.listBorder.g, colors.listBorder.b, colors.listBorder.a)
+        runnerFrame.dropBg:SetBackdropColor(colors.panelInset.r, colors.panelInset.g, colors.panelInset.b,
+            0.5 + (colors.panelInset.a * 0.15))
+        runnerFrame.dropBg:SetBackdropBorderColor(colors.listBorder.r, colors.listBorder.g, colors.listBorder.b,
+            colors.listBorder.a)
     end
     if searchBox then
         searchBox:SetTextColor(colors.accent.r, colors.accent.g, colors.accent.b)
@@ -1844,7 +1877,8 @@ function qtRunner:CreateSettingsPanel()
     local info = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     info:SetPoint("TOPLEFT", 20, -55)
     info:SetWidth(520)
-    info:SetText("Open the dedicated qtRunner settings window for defaults, alias editing, submit-key toggles, and theme switching.")
+    info:SetText(
+    "Open the dedicated qtRunner settings window for defaults, alias editing, submit-key toggles, and theme switching.")
     info:SetTextColor(0.75, 0.75, 0.8)
     local instructions = settingsFrame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     instructions:SetPoint("TOPLEFT", info, "BOTTOMLEFT", 0, -22)
