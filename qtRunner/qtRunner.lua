@@ -349,7 +349,7 @@ function qtRunner:HandleSearchTextChanged(text)
                 return true
             end
         end
-        if text:match("^%s*!%s*w%s*$") then
+        if text:match("^%s*!%s*[wW]%s*$") then
             if qtRunnerDB then
                 qtRunnerDB.lastBangPick = "w"
             end
@@ -357,7 +357,7 @@ function qtRunner:HandleSearchTextChanged(text)
             self:HideRunner()
             return true
         end
-        local cmd, rest = text:match("^%s*!%s*([zxqs])%s*(.*)$")
+        local cmd, rest = text:match("^%s*!%s*([zZxXqQsS])%s*(.*)$")
         if cmd then
             cmd = strlower(cmd)
             if qtRunnerDB then
