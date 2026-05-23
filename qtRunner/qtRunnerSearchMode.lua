@@ -136,6 +136,12 @@ local function SplitForgeQueryTokens(query)
 
             return " "
 
+        elseif lw == "affix" then
+
+            want.affix = true
+
+            return " "
+
         elseif lw == "acc" then
 
             want.acc = true
@@ -256,7 +262,7 @@ end
 
 local function ForgeWantAny(want)
 
-    return want.tf or want.wf or want.lf or want.ua
+    return want.tf or want.wf or want.lf or want.affix or want.ua
         or want.acc or want.accboe or want.vendor or want.vendorattune or want.vendoraccboe
         or want.vendorboe
         or want.quest or want.trash or want.craft or want.craftacc or want.boss or want.bossacc or want.unique or want.ub or want.zoneonly
@@ -360,6 +366,14 @@ local function ItemPassesForgeTokens(item, want)
         any = true
 
         if tier == ATTUNE_FORGE_TF then hit = true end
+
+    end
+
+    if want.affix then
+
+        any = true
+
+        if item.hasAffixes then hit = true end
 
     end
 

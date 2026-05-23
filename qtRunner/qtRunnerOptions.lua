@@ -844,7 +844,7 @@ local function BuildSettingsFrame()
     settingsUI.tutorial.filtersTitle:SetText("Item Filters")
     settingsUI.tutorial.filters = CreateText(tutorialBody, "GameFontNormalSmall", "TOPLEFT", settingsUI.tutorial.filtersTitle, "BOTTOMLEFT", 0, -8, 680, "LEFT")
     settingsUI.tutorial.filters.mode = "muted"
-    settingsUI.tutorial.filters:SetText("/tf /wf /lf forged tiers.  /ua unattuned char-ready.  /a or /acc account-attunable.  /ab account-attunable BOE.  /u unique drops (char attunable).  /ub char uniques + account-attunable BOE.  /b boss drops (char-attunable).  /ba boss drops (account-side).  /t trash (non-craft).  /c crafting + char attunable.  /ca crafting + account-side.  /v vendor + char attunable.  /q quest.")
+    settingsUI.tutorial.filters:SetText("/tf /wf /lf forged tiers.  /affix items with affix variants.  /ua unattuned char-ready.  /a or /acc account-attunable.  /ab account-attunable BOE.  /u unique drops (char attunable).  /ub char uniques + account-attunable BOE.  /b boss drops (char-attunable).  /ba boss drops (account-side).  /t trash (non-craft).  /c crafting + char attunable.  /ca crafting + account-side.  /v vendor + char attunable.  /q quest.")
 
     settingsUI.tutorial.notesTitle = CreateText(tutorialBody, "GameFontNormal", "TOPLEFT", settingsUI.tutorial.filters, "BOTTOMLEFT", 0, -16)
     settingsUI.tutorial.notesTitle:SetText("Examples")
