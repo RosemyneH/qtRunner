@@ -2951,12 +2951,33 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
         return pct
     end
 
+    local function IsZoneAffixWeaponItem(itemId)
+        if not GetItemInfo then
+            return false
+        end
+        local ok, _, _, _, _, _, itemType, _, _, equipLoc = pcall(GetItemInfo, itemId)
+        if not ok then
+            return false
+        end
+        return itemType == "Weapon"
+            or equipLoc == "INVTYPE_WEAPON"
+            or equipLoc == "INVTYPE_2HWEAPON"
+            or equipLoc == "INVTYPE_WEAPONMAINHAND"
+            or equipLoc == "INVTYPE_WEAPONOFFHAND"
+            or equipLoc == "INVTYPE_RANGED"
+            or equipLoc == "INVTYPE_RANGEDRIGHT"
+            or equipLoc == "INVTYPE_THROWN"
+    end
+
     local function AddZoneAffixProgress(itemId, seen, totalKey, completeKey)
         if not includeZoneAffixes then
             return
         end
         itemId = tonumber(itemId)
         if not itemId or itemId <= 0 then
+            return
+        end
+        if IsZoneAffixWeaponItem(itemId) then
             return
         end
         if not IsZoneBaseItemAttuned(itemId) then
@@ -3026,7 +3047,7 @@ function qtRunnerSearchData:BuildZoneEntries(zoneId, includeNpcSources, wantItem
         itemById[itemId] = true
         local forgeLevel = self:GetItemForgeLevel(itemId)
         local pctRounded = self:RoundAttunePct(forgePct)
-        local hasAffixes = GetZoneAffixIds(itemId) ~= nil
+        local hasAffixes = not IsZoneAffixWeaponItem(itemId) and GetZoneAffixIds(itemId) ~= nil
         local unattuned = (forgeLevel ~= nil and forgeLevel < 0)
             or (forgeLevel == nil and pctRounded <= 0)
         local dropTier, dropTag, bossHits, srcTotal, hasQuest, hasVendor, hasCraft, zoneOnly = ClassifyItemDropMeta(itemId, zoneId)
